@@ -2,8 +2,9 @@ from telegram import Update, ReplyKeyboardMarkup, ReplyKeyboardRemove
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes, MessageHandler, filters, ConversationHandler
 import random
 
-# Sostituisci questo con il tuo token API
-TELEGRAM_TOKEN = "8302793448:AAHrfBj1RaWc1BpTcsmP-Y9K4RC0GjkVHWE"
+import os
+# Sostituisci la riga con questa
+TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 
 # Stati della conversazione
 SCEGLI_CLASSE, SCEGLI_SOTTOCLASSE, SCEGLI_LIVELLO = range(3)
@@ -204,4 +205,5 @@ def main():
     app.run_polling()
 
 if __name__ == "__main__":
+
     main()
