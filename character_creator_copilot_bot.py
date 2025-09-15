@@ -3,14 +3,14 @@ from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes, Messa
 import random
 import os
 
-TELEGRAM_TOKEN = "8302793448:AAHrfBj1RaWc1BpTcsmP-Y9K4RC0GjkVHWE"
+TELEGRAM_TOKEN = "Inserire telegram token"
 
 # Stati della conversazione
 (
     QUANTI_PERSONAGGI, SCEGLI_CLASSE, SCEGLI_SOTTOCLASSE, SCEGLI_LIVELLO,
-    SCEGLI_BONUS_LIV4, SCEGLI_BONUS_LIV8, APPLICA_ASI_1, APPLICA_ASI_2,
-    SCEGLI_TALENTO_1, SCEGLI_TALENTO_2, FINE_CREAZIONE
-) = range(11)
+    SCEGLI_BONUS_LIV4, SCEGLI_BONUS_LIV8, APPLICA_ASI_1,
+    SCEGLI_TALENTO_1, FINE_CREAZIONE
+) = range(9)
 
 # Dati di D&D - LISTA COMPLETA
 classi_disponibili = {
@@ -103,27 +103,29 @@ async def quanti_personaggi(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return QUANTI_PERSONAGGI
 
     context.user_data['num_rimanenti'] = num_personaggi
-    await inizia_creazione_personaggio(update, context)
-    return SCEGLI_CLASSE
+    context.user_data['num_personaggi_iniziali'] = num_personaggi
+    return await inizia_creazione_personaggio(update, context)
 
 async def inizia_creazione_personaggio(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if context.user_data['num_rimanenti'] <= 0:
+    if context.user_data.get('num_rimanenti', 0) <= 0:
         await update.message.reply_text("Creazione terminata. Grazie!", reply_markup=ReplyKeyboardRemove())
         context.user_data.clear()
         return ConversationHandler.END
     
     context.user_data['num_rimanenti'] -= 1
-    context.user_data['stats'] = assign_stats('Guerriero', roll_dnd_stats()) # Placeholder, will be replaced
     context.user_data['talenti'] = []
 
     reply_keyboard = [list(classi_disponibili.keys())[i:i + 3] for i in range(0, len(classi_disponibili), 3)]
-    await update.message.reply_text(
+    
+    message_text = (
         f"Creazione personaggio #{context.user_data['num_personaggi_iniziali'] - context.user_data['num_rimanenti']}/{context.user_data['num_personaggi_iniziali']}\n"
-        "Per iniziare, quale classe vuoi scegliere?",
+        "Per iniziare, quale classe vuoi scegliere?"
+    )
+
+    await update.message.reply_text(
+        message_text,
         reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True)
     )
-    context.user_data['num_personaggi_iniziali'] = context.user_data.get('num_personaggi_iniziali', context.user_data['num_rimanenti'] + 1)
-    
     return SCEGLI_CLASSE
 
 async def classe_scelta(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -186,8 +188,7 @@ async def livello_scelto(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return SCEGLI_BONUS_LIV4
     
-    await finalize_character(update, context)
-    return ConversationHandler.END
+    return await finalize_character(update, context)
 
 async def scegli_bonus_liv4(update: Update, context: ContextTypes.DEFAULT_TYPE):
     choice = update.message.text
@@ -260,8 +261,7 @@ async def applica_asi_1(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return APPLICA_ASI_1
     
-    await gestisci_transizione(update, context)
-    return ConversationHandler.END
+    return await gestisci_transizione(update, context)
 
 
 async def scegli_talento_1(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -274,9 +274,7 @@ async def scegli_talento_1(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data['talenti'].append(feat_choice)
     context.user_data['talenti_da_scegliere'] -= 1
 
-    await gestisci_transizione(update, context)
-    return ConversationHandler.END
-
+    return await gestisci_transizione(update, context)
 
 async def gestisci_transizione(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if context.user_data.get('talenti_da_scegliere', 0) > 0:
@@ -289,8 +287,7 @@ async def gestisci_transizione(update: Update, context: ContextTypes.DEFAULT_TYP
         )
         return SCEGLI_TALENTO_1
     else:
-        await finalize_character(update, context)
-        return ConversationHandler.END
+        return await finalize_character(update, context)
 
 async def finalize_character(update: Update, context: ContextTypes.DEFAULT_TYPE):
     stats_final = context.user_data['stats']
@@ -315,8 +312,7 @@ async def finalize_character(update: Update, context: ContextTypes.DEFAULT_TYPE)
     
     # Continua la creazione se ci sono altri personaggi
     if context.user_data.get('num_rimanenti', 0) > 0:
-        await inizia_creazione_personaggio(update, context)
-        return SCEGLI_CLASSE
+        return await inizia_creazione_personaggio(update, context)
     
     context.user_data.clear()
     return ConversationHandler.END
@@ -324,6 +320,12 @@ async def finalize_character(update: Update, context: ContextTypes.DEFAULT_TYPE)
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text('Creazione personaggio annullata.', reply_markup=ReplyKeyboardRemove())
     context.user_data.clear()
+    return ConversationHandler.END
+
+async def next_char(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if context.user_data.get('num_rimanenti', 0) > 0:
+        return await inizia_creazione_personaggio(update, context)
+    await update.message.reply_text('Nessun altro personaggio da creare. Invia /crea per iniziare.', reply_markup=ReplyKeyboardRemove())
     return ConversationHandler.END
 
 def main():
@@ -345,11 +347,11 @@ def main():
             APPLICA_ASI_1: [MessageHandler(filters.TEXT & ~filters.COMMAND, applica_asi_1)],
             SCEGLI_TALENTO_1: [MessageHandler(filters.TEXT & ~filters.COMMAND, scegli_talento_1)],
         },
-        fallbacks=[CommandHandler('cancel', cancel), CommandHandler('start', start)],
+        fallbacks=[CommandHandler('cancel', cancel), CommandHandler('start', start), CommandHandler('next', next_char)],
     )
 
     app.add_handler(conv_handler)
-    app.add_handler(CommandHandler('start', start))
+    app.add_handler(CommandHandler('next', next_char))
     print("Bot avviato... premi Ctrl+C per fermarlo.")
     app.run_polling(poll_interval=2.0)
 
