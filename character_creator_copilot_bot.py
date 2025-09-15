@@ -3,36 +3,65 @@ from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes, Messa
 import random
 import os
 
-TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
+TELEGRAM_TOKEN = "8302793448:AAHrfBj1RaWc1BpTcsmP-Y9K4RC0GjkVHWE"
 
 # Stati della conversazione
 (
-    SCEGLI_CLASSE, SCEGLI_SOTTOCLASSE, SCEGLI_LIVELLO,
-    SCEGLI_BONUS_LIV4, SCEGLI_BONUS_LIV8, SCEGLI_TALENTO_1,
-    SCEGLI_TALENTO_2, APPLICA_ASI_1, APPLICA_ASI_2
-) = range(9)
+    QUANTI_PERSONAGGI, SCEGLI_CLASSE, SCEGLI_SOTTOCLASSE, SCEGLI_LIVELLO,
+    SCEGLI_BONUS_LIV4, SCEGLI_BONUS_LIV8, APPLICA_ASI_1, APPLICA_ASI_2,
+    SCEGLI_TALENTO_1, SCEGLI_TALENTO_2, FINE_CREAZIONE
+) = range(11)
 
-# Dati di D&D
+# Dati di D&D - LISTA COMPLETA
 classi_disponibili = {
-    'Barbaro': ['Sentiero del Berserker', 'Sentiero del Guerriero Totemico'],
-    'Guerriero': ['Maestro di Battaglia', 'Cavaliere Mistico'],
-    'Ladro': ['Ladro', 'Assassino'],
-    'Mago': ['Scuola di Invocazione', 'Scuola di Divinazione'],
+    'Barbaro': ['Sentiero del Berserker', 'Sentiero del Guerriero Totemico', 'Sentiero del Predatore', 'Sentiero del Giuramento'],
+    'Bardo': ['Collegio del Sapere', 'Collegio della Valor', 'Collegio della Glielamagia', 'Collegio delle Spade', 'Collegio della Creazione', 'Collegio dell\'Eloquenza'],
+    'Chierico': ['Dominio della Conoscenza', 'Dominio della Vita', 'Dominio della Luce', 'Dominio della Natura', 'Dominio della Tempesta', 'Dominio dell\'Inganno', 'Dominio della Guerra', 'Dominio del Cimitero', 'Dominio della Forgia', 'Dominio della Grazia', 'Dominio del Tempo', 'Dominio della Pace'],
+    'Druido': ['Circolo della Terra', 'Circolo della Luna', 'Circolo del Pastore', 'Circolo del Sogno', 'Circolo delle Spore'],
+    'Guerriero': ['Maestro di Battaglia', 'Cavaliere Mistico', 'Campione', 'Cavaliere Runa', 'Cavaliere Samurai', 'Cavaliere Spirituale', 'Maestro d\'Armi', 'Cavaliere Runa'],
+    'Ladro': ['Ladro', 'Assassino', 'Mistificatore Arcano', 'Inquisitore', 'Maestro della Lama Ombra', 'Spirito della Notte'],
+    'Mago': ['Scuola di Invocazione', 'Scuola di Divinazione', 'Scuola di Abjurazione', 'Scuola di Ammaliamento', 'Scuola di Necromanzia', 'Scuola di Trasmutazione', 'Scuola di Illusione', 'Bladesinger', 'War Mage'],
+    'Monaco': ['Via della Mano Aperta', 'Via della Sombra', 'Via dei Quattro Elementi', 'Via del Kensei', 'Via del Drago Ascendente', 'Via dell\'Anima del Teschio'],
+    'Paladino': ['Giuramento di Devozione', 'Giuramento degli Antichi', 'Giuramento di Vendetta', 'Giuramento della Conquista', 'Giuramento della Redenzione', 'Giuramento della Gloria'],
+    'Ranger': ['Cacciatore', 'Maestro delle Bestie', 'Cacciatore della Notte', 'Cercatore di Sentieri', 'Gloomy Hunter', 'Cacciatore di Draghi', 'Maestro delle Bestie'],
+    'Stregone': ['Stirpe Draconica', 'Magia Selvaggia', 'Stirpe Ombra', 'Magia di Tempesta', 'Magia Criptica', 'Anima di Fuoco'],
+    'Warlock': ['Il Signore', 'L\'Immortale', 'L\'Arcifata', 'Il Grande Antico', 'Il Celestiale', 'Il Genio', 'Il Mutaforma'],
+    'Artefice': ['Alchimista', 'Armaiolo', 'Artigliere', 'Fabbro delle Rune'],
+    'Mago da Guerra': ['Scuola di Abjurazione', 'Scuola di Divinazione', 'Scuola di Evocazione', 'Scuola di Necromanzia', 'Scuola di Trasmutazione', 'Scuola di Illusione'],
 }
 
 stat_primarie = {
     'Barbaro': ['Forza', 'Costituzione'],
+    'Bardo': ['Carisma', 'Destrezza'],
+    'Chierico': ['Saggezza', 'Forza'],
+    'Druido': ['Saggezza', 'Costituzione'],
     'Guerriero': ['Forza', 'Costituzione'],
     'Ladro': ['Destrezza', 'Intelligenza'],
     'Mago': ['Intelligenza', 'Costituzione'],
+    'Monaco': ['Destrezza', 'Saggezza'],
+    'Paladino': ['Forza', 'Carisma'],
+    'Ranger': ['Destrezza', 'Saggezza'],
+    'Stregone': ['Carisma', 'Costituzione'],
+    'Warlock': ['Carisma', 'Costituzione'],
+    'Artefice': ['Intelligenza', 'Costituzione'],
+    'Mago da Guerra': ['Intelligenza', 'Costituzione'],
 }
 
-# NUOVA STRUTTURA DATI: Talenti specifici per classe
 talenti_per_classe = {
-    'Barbaro': ['Sentinella', 'Resiliente', 'Maestro d\'Armi', 'Tavern Brawler'],
-    'Guerriero': ['Combattente', 'Maestro di Scudi', 'Sentinella', 'Grande Arma', 'Resiliente'],
-    'Ladro': ['Combattente', 'Tiratore Scelto', 'Maestro degli Archi', 'Mano Lesta'],
-    'Mago': ['Incantatore da Guerra', 'Resiliente', 'Ritual Caster', 'Elemental Adept'],
+    'Barbaro': ['Sentinel', 'Tough', 'Great Weapon Master', 'Polearm Master', 'Mobile', 'Resilient (Constitution)', 'Martial Adept'],
+    'Bardo': ['War Caster', 'Spell Sniper', 'Resilient (Charisma)', 'Inspiring Leader', 'Fey Touched', 'Shadow Touched'],
+    'Chierico': ['War Caster', 'Spell Sniper', 'Elemental Adept', 'Resilient (Wisdom)', 'Healer', 'Fey Touched'],
+    'Druido': ['War Caster', 'Spell Sniper', 'Resilient (Wisdom)', 'Elemental Adept', 'Fey Touched', 'Magic Initiate'],
+    'Guerriero': ['Great Weapon Master', 'Polearm Master', 'Sentinel', 'Sharpshooter', 'Crossbow Expert', 'Mobile', 'Tough', 'Martial Adept', 'Resilient (Strength)'],
+    'Ladro': ['Alert', 'Skulker', 'Sharpshooter', 'Mobile', 'Defensive Duelist', 'Resilient (Dexterity)', 'Sentinel'],
+    'Mago': ['War Caster', 'Elemental Adept', 'Resilient (Constitution)', 'Spell Sniper', 'Fey Touched', 'Shadow Touched', 'Ritual Caster'],
+    'Monaco': ['Mobile', 'Sentinel', 'Tough', 'Resilient (Wisdom)', 'Alert'],
+    'Paladino': ['Sentinel', 'Great Weapon Master', 'Polearm Master', 'Shield Master', 'Inspiring Leader', 'Resilient (Charisma)'],
+    'Ranger': ['Sharpshooter', 'Crossbow Expert', 'Sentinel', 'Skulker', 'Mobile', 'Resilient (Dexterity)'],
+    'Stregone': ['War Caster', 'Spell Sniper', 'Elemental Adept', 'Resilient (Charisma)', 'Fey Touched', 'Shadow Touched'],
+    'Warlock': ['War Caster', 'Spell Sniper', 'Fey Touched', 'Shadow Touched', 'Resilient (Charisma)', 'Inspiring Leader'],
+    'Artefice': ['Artificer Initiate', 'Infusion', 'Resilient (Constitution)', 'Fey Touched', 'Elemental Adept'],
+    'Mago da Guerra': ['War Caster', 'Spell Sniper', 'Elemental Adept', 'Resilient (Intelligence)', 'Fey Touched', 'Ritual Caster'],
 }
 
 def roll_dnd_stats():
@@ -61,15 +90,40 @@ def assign_stats(class_name, stats_values):
     return all_stats
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Benvenuto! Invia il comando /crea per iniziare.")
-    return ConversationHandler.END
+    await update.message.reply_text("Benvenuto! Quanti personaggi vuoi creare? (1-10)", reply_markup=ReplyKeyboardRemove())
+    return QUANTI_PERSONAGGI
 
-async def crea(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def quanti_personaggi(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    try:
+        num_personaggi = int(update.message.text)
+        if not 1 <= num_personaggi <= 10:
+            raise ValueError
+    except (ValueError, TypeError):
+        await update.message.reply_text("Per favore, inserisci un numero valido da 1 a 10.")
+        return QUANTI_PERSONAGGI
+
+    context.user_data['num_rimanenti'] = num_personaggi
+    await inizia_creazione_personaggio(update, context)
+    return SCEGLI_CLASSE
+
+async def inizia_creazione_personaggio(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if context.user_data['num_rimanenti'] <= 0:
+        await update.message.reply_text("Creazione terminata. Grazie!", reply_markup=ReplyKeyboardRemove())
+        context.user_data.clear()
+        return ConversationHandler.END
+    
+    context.user_data['num_rimanenti'] -= 1
+    context.user_data['stats'] = assign_stats('Guerriero', roll_dnd_stats()) # Placeholder, will be replaced
+    context.user_data['talenti'] = []
+
     reply_keyboard = [list(classi_disponibili.keys())[i:i + 3] for i in range(0, len(classi_disponibili), 3)]
     await update.message.reply_text(
+        f"Creazione personaggio #{context.user_data['num_personaggi_iniziali'] - context.user_data['num_rimanenti']}/{context.user_data['num_personaggi_iniziali']}\n"
         "Per iniziare, quale classe vuoi scegliere?",
         reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True)
     )
+    context.user_data['num_personaggi_iniziali'] = context.user_data.get('num_personaggi_iniziali', context.user_data['num_rimanenti'] + 1)
+    
     return SCEGLI_CLASSE
 
 async def classe_scelta(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -113,7 +167,7 @@ async def livello_scelto(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return SCEGLI_LIVELLO
         
     context.user_data['livello'] = livello
-    context.user_data['asi_points_applied'] = 0
+    context.user_data['punti_asi_da_distribuire'] = 0
     
     if livello >= 8:
         reply_keyboard = [['2 ASI (+4 punti)', '1 ASI + 1 Talento', '2 Talenti']]
@@ -138,9 +192,9 @@ async def livello_scelto(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def scegli_bonus_liv4(update: Update, context: ContextTypes.DEFAULT_TYPE):
     choice = update.message.text
     if choice == '2 punti nelle statistiche':
-        context.user_data['punti_da_applicare'] = 2
+        context.user_data['punti_asi_da_distribuire'] = 2
         await update.message.reply_text(
-            "Perfetto! Scegli la statistica da aumentare di 2 punti.",
+            "Perfetto! Scegli la prima statistica da aumentare di 1 punto.",
             reply_markup=ReplyKeyboardMarkup([['Forza', 'Destrezza', 'Costituzione'], ['Intelligenza', 'Saggezza', 'Carisma']], one_time_keyboard=True)
         )
         return APPLICA_ASI_1
@@ -161,17 +215,17 @@ async def scegli_bonus_liv4(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def scegli_bonus_liv8(update: Update, context: ContextTypes.DEFAULT_TYPE):
     choice = update.message.text
     if choice == '2 ASI (+4 punti)':
-        context.user_data['asi_da_applicare'] = 2
+        context.user_data['punti_asi_da_distribuire'] = 4
         await update.message.reply_text(
-            "Perfetto! Scegli la statistica per il tuo primo aumento di +2.",
+            "Perfetto! Scegli la prima statistica da aumentare di 1 punto. (Hai 4 punti da distribuire)",
             reply_markup=ReplyKeyboardMarkup([['Forza', 'Destrezza', 'Costituzione'], ['Intelligenza', 'Saggezza', 'Carisma']], one_time_keyboard=True)
         )
         return APPLICA_ASI_1
     elif choice == '1 ASI + 1 Talento':
-        context.user_data['asi_da_applicare'] = 1
+        context.user_data['punti_asi_da_distribuire'] = 2
         context.user_data['talenti_da_scegliere'] = 1
         await update.message.reply_text(
-            "Perfetto! Scegli la statistica da aumentare di 2 punti.",
+            "Perfetto! Scegli la prima statistica da aumentare di 1 punto.",
             reply_markup=ReplyKeyboardMarkup([['Forza', 'Destrezza', 'Costituzione'], ['Intelligenza', 'Saggezza', 'Carisma']], one_time_keyboard=True)
         )
         return APPLICA_ASI_1
@@ -196,38 +250,19 @@ async def applica_asi_1(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("Scelta non valida. Riprova.")
         return APPLICA_ASI_1
     
-    context.user_data['stats'][stat_choice] += 2
-    context.user_data['asi_points_applied'] += 2
+    context.user_data['stats'][stat_choice] += 1
+    context.user_data['punti_asi_da_distribuire'] -= 1
     
-    if context.user_data.get('asi_da_applicare', 0) > 1:
-        context.user_data['asi_da_applicare'] -= 1
+    if context.user_data['punti_asi_da_distribuire'] > 0:
         await update.message.reply_text(
-            "Ottimo. Scegli la prossima statistica da aumentare di 2 punti.",
+            f"Ottimo. Scegli un'altra statistica da aumentare di 1 punto. Ti rimangono {context.user_data['punti_asi_da_distribuire']} punti.",
             reply_markup=ReplyKeyboardMarkup([['Forza', 'Destrezza', 'Costituzione'], ['Intelligenza', 'Saggezza', 'Carisma']], one_time_keyboard=True)
         )
-        return APPLICA_ASI_2
+        return APPLICA_ASI_1
     
-    await finalize_or_next_step(update, context)
+    await gestisci_transizione(update, context)
     return ConversationHandler.END
 
-async def applica_asi_2(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    stat_choice = update.message.text
-    if stat_choice not in context.user_data['stats']:
-        await update.message.reply_text("Scelta non valida. Riprova.")
-        return APPLICA_ASI_2
-
-    context.user_data['stats'][stat_choice] += 2
-    context.user_data['asi_points_applied'] += 2
-
-    if 'talenti_da_scegliere' in context.user_data and context.user_data['talenti_da_scegliere'] > 0:
-        await update.message.reply_text("Ottimo. Ora scegli il tuo talento:",
-            reply_markup=ReplyKeyboardMarkup([list(talenti_disponibili.keys())[i:i+2] for i in range(0, len(talenti_disponibili), 2)], one_time_keyboard=True)
-        )
-        context.user_data['talenti_da_scegliere'] -= 1
-        return SCEGLI_TALENTO_1
-
-    await finalize_character(update, context)
-    return ConversationHandler.END
 
 async def scegli_talento_1(update: Update, context: ContextTypes.DEFAULT_TYPE):
     feat_choice = update.message.text
@@ -237,35 +272,20 @@ async def scegli_talento_1(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return SCEGLI_TALENTO_1
     
     context.user_data['talenti'].append(feat_choice)
+    context.user_data['talenti_da_scegliere'] -= 1
 
-    if context.user_data.get('talenti_da_scegliere', 0) > 0:
-        context.user_data['talenti_da_scegliere'] -= 1
-        await update.message.reply_text("Scegli il tuo prossimo talento:",
-            reply_markup=ReplyKeyboardMarkup([list(talenti_per_classe.get(classe, []))[i:i+2] for i in range(0, len(talenti_per_classe.get(classe, [])), 2)], one_time_keyboard=True)
-        )
-        return SCEGLI_TALENTO_2
-    
-    await finalize_character(update, context)
+    await gestisci_transizione(update, context)
     return ConversationHandler.END
 
-async def scegli_talento_2(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    feat_choice = update.message.text
-    classe = context.user_data['classe']
-    if feat_choice not in talenti_per_classe.get(classe, []):
-        await update.message.reply_text("Talento non valido. Riprova.")
-        return SCEGLI_TALENTO_2
-    
-    context.user_data['talenti'].append(feat_choice)
 
-    await finalize_character(update, context)
-    return ConversationHandler.END
-
-async def finalize_or_next_step(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def gestisci_transizione(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if context.user_data.get('talenti_da_scegliere', 0) > 0:
         classe = context.user_data['classe']
-        context.user_data['talenti_da_scegliere'] -= 1
-        await update.message.reply_text("Perfetto. Ora scegli il tuo talento:",
-            reply_markup=ReplyKeyboardMarkup([list(talenti_per_classe.get(classe, []))[i:i+2] for i in range(0, len(talenti_per_classe.get(classe, [])), 2)], one_time_keyboard=True)
+        talenti_disponibili_per_classe = talenti_per_classe.get(classe, [])
+        reply_keyboard = [talenti_disponibili_per_classe[i:i+2] for i in range(0, len(talenti_disponibili_per_classe), 2)]
+        
+        await update.message.reply_text("Ora scegli il tuo prossimo talento:",
+            reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True)
         )
         return SCEGLI_TALENTO_1
     else:
@@ -292,6 +312,12 @@ async def finalize_character(update: Update, context: ContextTypes.DEFAULT_TYPE)
     )
 
     await update.message.reply_html(message, reply_markup=ReplyKeyboardRemove())
+    
+    # Continua la creazione se ci sono altri personaggi
+    if context.user_data.get('num_rimanenti', 0) > 0:
+        await inizia_creazione_personaggio(update, context)
+        return SCEGLI_CLASSE
+    
     context.user_data.clear()
     return ConversationHandler.END
 
@@ -308,17 +334,16 @@ def main():
     app = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
     
     conv_handler = ConversationHandler(
-        entry_points=[CommandHandler("crea", crea)],
+        entry_points=[CommandHandler("crea", start)],
         states={
+            QUANTI_PERSONAGGI: [MessageHandler(filters.TEXT & ~filters.COMMAND, quanti_personaggi)],
             SCEGLI_CLASSE: [MessageHandler(filters.TEXT & ~filters.COMMAND, classe_scelta)],
             SCEGLI_SOTTOCLASSE: [MessageHandler(filters.TEXT & ~filters.COMMAND, sottoclasse_scelta)],
             SCEGLI_LIVELLO: [MessageHandler(filters.TEXT & ~filters.COMMAND, livello_scelto)],
             SCEGLI_BONUS_LIV4: [MessageHandler(filters.TEXT & ~filters.COMMAND, scegli_bonus_liv4)],
             SCEGLI_BONUS_LIV8: [MessageHandler(filters.TEXT & ~filters.COMMAND, scegli_bonus_liv8)],
             APPLICA_ASI_1: [MessageHandler(filters.TEXT & ~filters.COMMAND, applica_asi_1)],
-            APPLICA_ASI_2: [MessageHandler(filters.TEXT & ~filters.COMMAND, applica_asi_2)],
             SCEGLI_TALENTO_1: [MessageHandler(filters.TEXT & ~filters.COMMAND, scegli_talento_1)],
-            SCEGLI_TALENTO_2: [MessageHandler(filters.TEXT & ~filters.COMMAND, scegli_talento_2)],
         },
         fallbacks=[CommandHandler('cancel', cancel), CommandHandler('start', start)],
     )
