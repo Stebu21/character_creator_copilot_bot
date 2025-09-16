@@ -3,14 +3,17 @@ from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes, Messa
 import random
 import os
 
-TELEGRAM_TOKEN = ""
+# Ottimizzazione per la produzione: usa variabili d'ambiente
+TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN", "8302793448:AAHrfBj1RaWc1BpTcsmP-Y9K4RC0GjkVHWE")
+if TELEGRAM_TOKEN == "8302793448:AAHrfBj1RaWc1BpTcsmP-Y9K4RC0GjkVHWE":
+    print("ATTENZIONE: Il token Telegram non è stato impostato come variabile d'ambiente. Usando il valore di default.")
 
 # Stati della conversazione
 (
-    QUANTI_PERSONAGGI, SCEGLI_CLASSE, SCEGLI_SOTTOCLASSE, SCEGLI_EQUIPAGGIAMENTO, 
-    SCEGLI_LIVELLO, SCEGLI_BONUS_LIV4, SCEGLI_BONUS_LIV8, APPLICA_ASI_1,
-    SCEGLI_TALENTO_1, SCEGLI_LINGUE
-) = range(10)
+    QUANTI_PERSONAGGI, ASSEGNA_STAT, SCEGLI_CLASSE, SCEGLI_SOTTOCLASSE, SCEGLI_EQUIPAGGIAMENTO,
+    SCEGLI_LIVELLO, SCEGLI_BONUS, APPLICA_ASI, SCEGLI_TALENTO, SCEGLI_TRUCCHETTI_E_INCANTESIMI,
+    SCEGLI_LINGUE, INSERISCI_NOME, SCEGLI_RAZZA,
+) = range(13)
 
 # Dati di D&D - LISTA COMPLETA
 classi_disponibili = {
@@ -30,6 +33,8 @@ classi_disponibili = {
     'Mago da Guerra': ['Scuola di Abjurazione', 'Scuola di Divinazione', 'Scuola di Evocazione', 'Scuola di Necromanzia', 'Scuola di Trasmutazione', 'Scuola di Illusione'],
 }
 
+razze_disponibili = ['Umano', 'Elfo', 'Halfling', 'Nano', 'Dragonide', 'Gnomo', 'Mezzelfo', 'Mezzorco', 'Tiefling']
+
 stat_primarie = {
     'Barbaro': ['Forza', 'Costituzione'],
     'Bardo': ['Carisma', 'Destrezza'],
@@ -48,33 +53,26 @@ stat_primarie = {
 }
 
 talenti_per_classe = {
-    'Barbaro': ['Sentinel', 'Tough', 'Great Weapon Master', 'Polearm Master', 'Mobile', 'Resilient (Constitution)', 'Martial Adept'],
-    'Bardo': ['War Caster', 'Spell Sniper', 'Resilient (Charisma)', 'Inspiring Leader', 'Fey Touched', 'Shadow Touched'],
-    'Chierico': ['War Caster', 'Spell Sniper', 'Elemental Adept', 'Resilient (Wisdom)', 'Healer', 'Fey Touched'],
-    'Druido': ['War Caster', 'Spell Sniper', 'Resilient (Wisdom)', 'Elemental Adept', 'Fey Touched', 'Magic Initiate'],
-    'Guerriero': ['Great Weapon Master', 'Polearm Master', 'Sentinel', 'Sharpshooter', 'Crossbow Expert', 'Mobile', 'Tough', 'Martial Adept', 'Resilient (Strength)'],
-    'Ladro': ['Alert', 'Skulker', 'Sharpshooter', 'Mobile', 'Defensive Duelist', 'Resilient (Dexterity)', 'Sentinel'],
-    'Mago': ['War Caster', 'Elemental Adept', 'Resilient (Constitution)', 'Spell Sniper', 'Fey Touched', 'Shadow Touched', 'Ritual Caster'],
-    'Monaco': ['Mobile', 'Sentinel', 'Tough', 'Resilient (Wisdom)', 'Alert'],
-    'Paladino': ['Sentinel', 'Great Weapon Master', 'Polearm Master', 'Shield Master', 'Inspiring Leader', 'Resilient (Charisma)'],
-    'Ranger': ['Sharpshooter', 'Crossbow Expert', 'Sentinel', 'Skulker', 'Mobile', 'Resilient (Dexterity)'],
-    'Stregone': ['War Caster', 'Spell Sniper', 'Elemental Adept', 'Resilient (Charisma)', 'Fey Touched', 'Shadow Touched'],
-    'Warlock': ['War Caster', 'Spell Sniper', 'Fey Touched', 'Shadow Touched', 'Resilient (Charisma)', 'Inspiring Leader'],
-    'Artefice': ['Artificer Initiate', 'Infusion', 'Resilient (Constitution)', 'Fey Touched', 'Elemental Adept'],
-    'Mago da Guerra': ['War Caster', 'Spell Sniper', 'Elemental Adept', 'Resilient (Intelligence)', 'Fey Touched', 'Ritual Caster'],
+    'Barbaro': ['Sentinel', 'Tough', 'Great Weapon Master', 'Polearm Master', 'Mobile', 'Resilient (Costituzione)', 'Martial Adept'],
+    'Bardo': ['War Caster', 'Spell Sniper', 'Resilient (Carisma)', 'Inspiring Leader', 'Fey Touched', 'Shadow Touched'],
+    'Chierico': ['War Caster', 'Spell Sniper', 'Elemental Adept', 'Resilient (Saggezza)', 'Healer', 'Fey Touched'],
+    'Druido': ['War Caster', 'Spell Sniper', 'Resilient (Saggezza)', 'Elemental Adept', 'Fey Touched', 'Magic Initiate'],
+    'Guerriero': ['Great Weapon Master', 'Polearm Master', 'Sentinel', 'Sharpshooter', 'Crossbow Expert', 'Mobile', 'Tough', 'Martial Adept', 'Resilient (Forza)'],
+    'Ladro': ['Alert', 'Skulker', 'Sharpshooter', 'Mobile', 'Defensive Duelist', 'Resilient (Destrezza)', 'Sentinel'],
+    'Mago': ['War Caster', 'Elemental Adept', 'Resilient (Costituzione)', 'Spell Sniper', 'Fey Touched', 'Shadow Touched', 'Ritual Caster'],
+    'Monaco': ['Mobile', 'Sentinel', 'Tough', 'Resilient (Saggezza)', 'Alert'],
+    'Paladino': ['Sentinel', 'Great Weapon Master', 'Polearm Master', 'Shield Master', 'Inspiring Leader', 'Resilient (Carisma)'],
+    'Ranger': ['Sharpshooter', 'Crossbow Expert', 'Sentinel', 'Skulker', 'Mobile', 'Resilient (Destrezza)'],
+    'Stregone': ['War Caster', 'Spell Sniper', 'Elemental Adept', 'Resilient (Carisma)', 'Fey Touched', 'Shadow Touched'],
+    'Warlock': ['War Caster', 'Spell Sniper', 'Fey Touched', 'Shadow Touched', 'Resilient (Carisma)', 'Inspiring Leader'],
+    'Artefice': ['Artificer Initiate', 'Infusion', 'Resilient (Costituzione)', 'Fey Touched', 'Elemental Adept'],
+    'Mago da Guerra': ['War Caster', 'Spell Sniper', 'Elemental Adept', 'Resilient (Intelligenza)', 'Fey Touched', 'Ritual Caster'],
 }
 
-# Nuovo dizionario per le competenze di classe e sottoclasse
 competenze_iniziali = {
     'Barbaro': {'armature': ['leggera', 'media', 'scudo'], 'armi': ['semplice', 'da guerra'], 'attrezzi': []},
-    'Bardo': {'armature': ['leggera'], 'armi': ['semplice', 'balestra a mano', 'spada lunga', 'stocco', 'spada corta'], 'attrezzi': ['strumento musicale (3)'], 'sottoclasse': {
-        'Collegio della Valor': {'armature': ['media', 'scudo'], 'armi': ['da guerra']},
-    }},
-    'Chierico': {'armature': ['leggera', 'media', 'scudo'], 'armi': ['semplice'], 'attrezzi': [], 'sottoclasse': {
-        'Dominio della Vita': {'armature': ['pesante']},
-        'Dominio della Guerra': {'armature': ['pesante'], 'armi': ['da guerra']},
-        'Dominio della Forgia': {'armature': ['pesante']},
-    }},
+    'Bardo': {'armature': ['leggera'], 'armi': ['semplice', 'balestra a mano', 'spada lunga', 'stocco', 'spada corta'], 'attrezzi': ['strumento musicale (3)'], 'sottoclasse': {'Collegio della Valor': {'armature': ['media', 'scudo'], 'armi': ['da guerra']}}},
+    'Chierico': {'armature': ['leggera', 'media', 'scudo'], 'armi': ['semplice'], 'attrezzi': [], 'sottoclasse': {'Dominio della Vita': {'armature': ['pesante']}, 'Dominio della Guerra': {'armature': ['pesante'], 'armi': ['da guerra']}, 'Dominio della Forgia': {'armature': ['pesante']}}},
     'Druido': {'armature': ['leggera', 'media', 'scudo'], 'armi': ['semplice'], 'attrezzi': ['erborista'], 'note': 'Non indossano armature o scudi di metallo.'},
     'Guerriero': {'armature': ['leggera', 'media', 'pesante', 'scudo'], 'armi': ['semplice', 'da guerra'], 'attrezzi': []},
     'Ladro': {'armature': ['leggera'], 'armi': ['semplice', 'spada lunga', 'stocco', 'balestra a mano'], 'attrezzi': ['attrezzi da scasso']},
@@ -82,108 +80,73 @@ competenze_iniziali = {
     'Monaco': {'armature': [], 'armi': ['semplice', 'spada corta'], 'attrezzi': ['un tipo di attrezzi da artigiano o uno strumento musicale']},
     'Paladino': {'armature': ['leggera', 'media', 'pesante', 'scudo'], 'armi': ['semplice', 'da guerra'], 'attrezzi': []},
     'Ranger': {'armature': ['leggera', 'media', 'scudo'], 'armi': ['semplice', 'da guerra'], 'attrezzi': []},
-    'Stregone': {'armature': [], 'armi': ['pugnale', 'bastone', 'dardo', 'fionda', 'balestra leggera'], 'attrezzi': []},
+    'Stregone': {'armature': ['leggera'], 'armi': ['semplice'], 'attrezzi': []},
     'Warlock': {'armature': ['leggera'], 'armi': ['semplice'], 'attrezzi': []},
     'Artefice': {'armature': ['leggera', 'media', 'scudo'], 'armi': ['semplice', 'da guerra'], 'attrezzi': ['attrezzi da artigiano (2)']},
     'Mago da Guerra': {'armature': [], 'armi': ['semplice', 'pugnale', 'dardo', 'fionda', 'bastone', 'balestra leggera'], 'attrezzi': []},
 }
 
-# Nuovo dizionario per le lingue
-lingue_conoscibili = {
-    'standard': ['Comune', 'Nano', 'Elfico', 'Gigante', 'Gnomesco', 'Goblin', 'Halfling', 'Orchesco'],
-    'esotiche': ['Abissale', 'Celestiale', 'Draconico', 'Infernale', 'Primordiale', 'Sottocomune'],
-    'numero_lingue_extra': {
-        'Umano': 1,  # Esempio, dato che non abbiamo le razze
-        'Chierico': 1,
-        'Mago': 2,
-    }
+equipaggiamento_iniziale_nuovo = {
+    'Barbaro': {'scelta_1': ['Ascia bipenne', 'Qualsiasi arma marziale da mischia'], 'scelta_2': ['Due asce da mano', 'Qualsiasi arma semplice'], 'fisso': ['Un pacchetto da esploratore', 'Quattro giavellotti']},
+    'Bardo': {'scelta_1': ['Stocco', 'Spada lunga', 'Qualsiasi arma semplice'], 'scelta_2': ['Un pacchetto da diplomatico', 'Un pacchetto da intrattenitore'], 'scelta_3': ['Liuto', 'Qualsiasi altro strumento musicale'], 'fisso': ['Armatura di cuoio', 'Pugnale']},
+    'Chierico': {'scelta_1': ['Mazza', 'Martello da guerra'], 'scelta_2': ['Balestra leggera e 20 dardi', 'Qualsiasi arma semplice da mischia'], 'scelta_3': ['Un pacchetto da sacerdote', 'Un pacchetto da esploratore'], 'fisso': ['Scudo', 'Simbolo sacro']},
+    'Druido': {'scelta_1': ['Scudo di legno', 'Qualsiasi arma semplice'], 'scelta_2': ['Scimitarra', 'Qualsiasi arma da mischia semplice'], 'fisso': ['Armatura di cuoio', 'Un pacchetto da esploratore', 'Focus druidico']},
+    'Guerriero': {'scelta_1': ['Armatura di maglia', 'Armatura di cuoio, arco lungo e 20 frecce'], 'scelta_2': ['Un\'arma marziale e uno scudo', 'Due armi marziali'], 'scelta_3': ['Una balestra leggera e 20 dardi', 'Due asce da mano'], 'scelta_4': ['Un pacchetto da avventuriero', 'Un pacchetto da esploratore']},
+    'Ladro': {'scelta_1': ['Stocco', 'Spada corta'], 'scelta_2': ['Arco corto e 20 frecce', 'Spada corta'], 'scelta_3': ['Pacchetto da scassinatore', 'Pacchetto da avventuriero', 'Pacchetto da esploratore'], 'fisso': ['Armatura di cuoio', 'Due pugnali', 'Attrezzi da scasso']},
+    'Mago': {'scelta_1': ['Bastone', 'Pugnale'], 'scelta_2': ['Pacchetto da studioso', 'Pacchetto da avventuriero'], 'scelta_3': ['Borsa dei componenti', 'Focus arcano'], 'fisso': ['Libro degli incantesimi']},
+    'Monaco': {'scelta_1': ['Spada corta', 'Qualsiasi arma semplice'], 'scelta_2': ['Pacchetto da avventuriero', 'Pacchetto da esploratore'], 'fisso': ['10 giavellotti']},
+    'Paladino': {'scelta_1': ['Un\'arma marziale e uno scudo', 'Due armi marziali'], 'scelta_2': ['Cinque giavellotti', 'Un\'arma da mischia semplice'], 'scelta_3': ['Un pacchetto da sacerdote', 'Un pacchetto da esploratore'], 'fisso': ['Armatura di maglia', 'Simbolo sacro']},
+    'Ranger': {'scelta_1': ['Armatura di maglia', 'Armatura di cuoio'], 'scelta_2': ['Due spade corte', 'Due armi semplici'], 'scelta_3': ['Un pacchetto da avventuriero', 'Un pacchetto da esploratore'], 'fisso': ['Arco lungo', '20 frecce']},
+    'Stregone': {'scelta_1': ['Balestra leggera e 20 dardi', 'Qualsiasi arma semplice'], 'scelta_2': ['Borsa dei componenti', 'Focus arcano'], 'scelta_3': ['Pacchetto da avventuriero', 'Pacchetto da esploratore'], 'fisso': ['Due pugnali']},
+    'Warlock': {'scelta_1': ['Balestra leggera e 20 dardi', 'Qualsiasi arma semplice'], 'scelta_2': ['Borsa dei componenti', 'Focus arcano'], 'scelta_3': ['Pacchetto da studioso', 'Pacchetto da avventuriero'], 'fisso': ['Armatura di cuoio', 'Due pugnali']},
+    'Artefice': {'scelta_1': ['Martello da guerra', 'Qualsiasi arma semplice'], 'scelta_2': ['Balestra leggera e 20 dardi', 'Qualsiasi arma semplice'], 'scelta_3': ['Pacchetto da avventuriero', 'Pacchetto da esploratore'], 'fisso': ['Armatura di scaglie', 'Scudo', 'Una serie di attrezzi da artigiano', 'Una serie di attrezzi da scasso']},
+    'Mago da Guerra': {'scelta_1': ['Balestra leggera e 20 dardi', 'Qualsiasi arma semplice'], 'scelta_2': ['Un\'armatura di cuoio', 'Un\'armatura di scaglie'], 'scelta_3': ['Uno scudo', 'Nessuno scudo'], 'scelta_4': ['Un pacchetto da avventuriero', 'Un pacchetto da studioso']},
 }
 
-equipaggiamento_iniziale = {
-    'Barbaro': [
-        ['ascia bipenne', 'qualsiasi arma marziale da mischia'],
-        ['due asce da mano', 'qualsiasi arma semplice'],
-        'un pacchetto da esploratore e quattro giavellotti'
-    ],
-    'Bardo': [
-        ['stocco', 'spada lunga', 'qualsiasi arma semplice'],
-        ['un pacchetto da diplomatico', 'un pacchetto da intrattenitore'],
-        ['un liuto', 'qualsiasi altro strumento musicale'],
-        'un\'armatura di cuoio e un pugnale'
-    ],
-    'Chierico': [
-        ['una mazza', 'un martello da guerra'],
-        ['armatura di maglia', 'armatura di cuoio', 'armatura di scaglie', 'armatura pesante'], # Aggiunto "pesante" per la logica
-        ['uno scudo', 'un\'arma semplice'],
-        ['un pacchetto da sacerdote', 'un pacchetto da esploratore']
-    ],
-    'Druido': [
-        ['uno scudo di legno', 'qualsiasi arma semplice'],
-        ['una scimitarra', 'qualsiasi arma da mischia semplice'],
-        'un\'armatura di cuoio, un pacchetto da esploratore e un focus druidico'
-    ],
-    'Guerriero': [
-        ['armatura di maglia', 'armatura di cuoio, arco lungo e 20 frecce'],
-        ['un\'arma marziale e uno scudo', 'due armi marziali'],
-        ['una balestra leggera e 20 dardi', 'due asce da mano'],
-        ['un pacchetto da avventuriero', 'un pacchetto da esploratore']
-    ],
-    'Ladro': [
-        ['uno stocco', 'una spada corta'],
-        ['un arco corto e 20 frecce', 'una spada corta'],
-        ['un pacchetto da scassinatore', 'un pacchetto da avventuriero', 'un pacchetto da esploratore'],
-        'un\'armatura di cuoio, due pugnali e gli attrezzi da scasso'
-    ],
-    'Mago': [
-        ['un bastone', 'un pugnale'],
-        ['un pacchetto da studioso', 'un pacchetto da avventuriero'],
-        ['una borsa dei componenti', 'un focus arcano'],
-        'un libro degli incantesimi'
-    ],
-    'Monaco': [
-        ['una spada corta', 'qualsiasi arma semplice'],
-        ['un pacchetto da avventuriero', 'un pacchetto da esploratore'],
-        '10 giavellotti'
-    ],
-    'Paladino': [
-        ['un\'arma marziale e uno scudo', 'due armi marziali'],
-        ['cinque giavellotti', 'un\'arma da mischia semplice'],
-        ['un pacchetto da sacerdote', 'un pacchetto da esploratore'],
-        'armatura di maglia e un simbolo sacro'
-    ],
-    'Ranger': [
-        ['armatura di maglia', 'armatura di cuoio'],
-        ['due spade corte', 'due armi semplici'],
-        ['un pacchetto da avventuriero', 'un pacchetto da esploratore'],
-        'un arco lungo e 20 frecce'
-    ],
-    'Stregone': [
-        ['una balestra leggera e 20 dardi', 'qualsiasi arma semplice'],
-        ['una borsa dei componenti', 'un focus arcano'],
-        ['un pacchetto da avventuriero', 'un pacchetto da esploratore'],
-        'due pugnali'
-    ],
-    'Warlock': [
-        ['una balestra leggera e 20 dardi', 'qualsiasi arma semplice'],
-        ['una borsa dei componenti', 'un focus arcano'],
-        ['un pacchetto da studioso', 'un pacchetto da avventuriero'],
-        'un\'armatura di cuoio e due pugnali'
-    ],
-    'Artefice': [
-        ['un martello da guerra', 'un\'arma semplice'],
-        ['una balestra leggera e 20 dardi', 'qualsiasi arma semplice'],
-        ['un pacchetto da avventuriero', 'un pacchetto da esploratore'],
-        'un\'armatura di scaglie, uno scudo, una serie di attrezzi da artigiano e una serie di attrezzi da scasso'
-    ],
-    'Mago da Guerra': [
-        ['una balestra leggera e 20 dardi', 'qualsiasi arma semplice'],
-        ['un\'armatura di cuoio', 'un\'armatura di scaglie'],
-        ['uno scudo', 'Nessuno scudo'],
-        ['un pacchetto da avventuriero', 'un pacchetto da studioso']
-    ],
+lingue_conoscibili = {
+    'standard': ['Nano', 'Elfico', 'Gigante', 'Gnomesco', 'Goblin', 'Halfling', 'Orchesco'],
+    'esotiche': ['Abissale', 'Celestiale', 'Draconico', 'Infernale', 'Primordiale', 'Sottocomune'],
 }
+
+incantatori = ['Mago', 'Stregone', 'Warlock', 'Chierico', 'Bardo', 'Druido', 'Paladino', 'Ranger', 'Artefice']
+
+magie_iniziali = {
+    'Mago': {'trucchetti': 3, 'incantesimi': 6},
+    'Stregone': {'trucchetti': 4, 'incantesimi': 2},
+    'Warlock': {'trucchetti': 2, 'incantesimi': 2},
+    'Chierico': {'trucchetti': 3, 'incantesimi': 0}, # I chierici scelgono incantesimi ogni giorno, ma trucchetti sono fissi.
+    'Bardo': {'trucchetti': 2, 'incantesimi': 4},
+    'Druido': {'trucchetti': 2, 'incantesimi': 0}, # I druidi scelgono incantesimi ogni giorno, ma trucchetti sono fissi.
+    'Paladino': {'trucchetti': 0, 'incantesimi': 0}, # I Paladini non hanno trucchetti e ottengono incantesimi al 2° livello
+    'Ranger': {'trucchetti': 0, 'incantesimi': 0}, # I Ranger non hanno trucchetti e ottengono incantesimi al 2° livello
+    'Artefice': {'trucchetti': 2, 'incantesimi': 2},
+}
+
+trucchetti_disponibili = {
+    'Bardo': ['Lame Cantanti', 'Fiamma del Mago', 'Illusione Minore', 'Luce', 'Prestigiazione', 'Scherzo di Spettri'],
+    'Chierico': ['Fiamma Sacra', 'Guida', 'Lama della Fiamma', 'Luce', 'Resistenza', 'Taumaturgia'],
+    'Druido': ['Frustata di Spine', 'Guida', 'Infestare', 'Lame Cantanti', 'Pugno di Pietra', 'Spruzzo Velenoso'],
+    'Mago': ['Dardo di Fuoco', 'Fiamma del Mago', 'Illusione Minore', 'Luce', 'Mano Magica', 'Prestigiazione'],
+    'Stregone': ['Dardo di Fuoco', 'Fiamma del Mago', 'Illusione Minore', 'Luce', 'Mano Magica', 'Spruzzo Velenoso'],
+    'Warlock': ['Contatto Glaciale', 'Dardo Esplosivo', 'Fiamma del Mago', 'Illusione Minore', 'Mano Magica', 'Resistenza'],
+    'Artefice': ['Lame Cantanti', 'Mano Magica', 'Riparare', 'Spruzzo Velenoso'],
+}
+
+incantesimi_disponibili = {
+    'Bardo': ['Charme su Persona', 'Colpo Accurato', 'Dardo Incantato', 'Individuazione del Magico', 'Parola Guaritrice', 'Sonno'],
+    'Chierico': ['Arma Spirituale', 'Benedizione', 'Ferire', 'Scudo della Fede', 'Onda Tonante', 'Parola Guaritrice'],
+    'Druido': ['Onda di Marea', 'Camminare sull\'Acqua', 'Erbaccia', 'Incantesimi di cura', 'Rovina', 'Spruzzo Velenoso'],
+    'Mago': ['Armatura Magica', 'Dardo Incantato', 'Mano Magica', 'Onda Tonante', 'Sonno', 'Raggio di Gelo'],
+    'Stregone': ['Dardo Incantato', 'Mano Magica', 'Scudo', 'Sonno', 'Charme su Persona'],
+    'Warlock': ['Charme su Persona', 'Dardo Incantato', 'Mano Magica', 'Raggio di Gelo', 'Sonno'],
+    'Paladino': ['Incantesimi di Cura', 'Dardo Incantato'], # Incantesimi di 1° livello base
+    'Ranger': ['Charme su Persona', 'Dardo Incantato'], # Incantesimi di 1° livello base
+    'Artefice': ['Incantesimi di Cura', 'Dardo Incantato', 'Scudo'],
+}
+
 
 def roll_dnd_stats():
+    """Tira 4d6 e somma i 3 più alti, ripetuto 6 volte."""
     stats_list = []
     for _ in range(6):
         rolls = sorted([random.randint(1, 6) for _ in range(4)])
@@ -191,34 +154,73 @@ def roll_dnd_stats():
     stats_list.sort(reverse=True)
     return stats_list
 
-def assign_stats(class_name, stats_values):
-    all_stats = {'Forza': 0, 'Destrezza': 0, 'Costituzione': 0, 'Intelligenza': 0, 'Saggezza': 0, 'Carisma': 0}
-    primary_stats = stat_primarie.get(class_name, [])
-    
-    assigned_count = 0
-    for stat in primary_stats:
-        if assigned_count < len(stats_values):
-            all_stats[stat] = stats_values[assigned_count]
-            assigned_count += 1
-    
-    remaining_stats = [stat for stat in all_stats.keys() if stat not in primary_stats]
-    for stat in remaining_stats:
-        if assigned_count < len(stats_values):
-            all_stats[stat] = stats_values[assigned_count]
-            assigned_count += 1
-    return all_stats
-
-# Funzione per aggiungere le competenze di classe e sottoclasse
 def assegna_competenze(class_name, subclass_name=None):
+    """Calcola le competenze totali basate su classe e sottoclasse."""
     competenze = competenze_iniziali.get(class_name, {})
     proficienze = competenze.get('armature', []) + competenze.get('armi', []) + competenze.get('attrezzi', [])
-    
-    # Aggiungi le competenze della sottoclasse, se presenti
+
     subclass_data = competenze.get('sottoclasse', {}).get(subclass_name, {})
     proficienze += subclass_data.get('armature', []) + subclass_data.get('armi', []) + subclass_data.get('attrezzi', [])
-    
+
     return proficienze
 
+def check_proficiency(option_str, proficiencies):
+    """Verifica se l'utente è competente con un'opzione di equipaggiamento."""
+    option_str_lower = option_str.lower()
+
+    # Mappatura delle armature alle competenze
+    armature_map = {
+        'cuoio': 'leggera',
+        'maglia': 'media',
+        'scaglie': 'media',
+        'piastre': 'pesante',
+        'scudo': 'scudo',
+    }
+
+    # Controllo armature
+    for armor, prof in armature_map.items():
+        if armor in option_str_lower and prof in proficiencies:
+            return True
+
+    # Controllo armi
+    if 'arma marziale' in option_str_lower and 'da guerra' in proficiencies: return True
+    if 'arma semplice' in option_str_lower and 'semplice' in proficiencies: return True
+
+    # Armi specifiche
+    if 'stocco' in option_str_lower and 'stocco' in proficiencies: return True
+    if 'spada lunga' in option_str_lower and 'spada lunga' in proficiencies: return True
+    if 'spada corta' in option_str_lower and 'spada corta' in proficiencies: return True
+    if 'pugnale' in option_str_lower and 'pugnale' in proficiencies: return True
+    if 'arco' in option_str_lower and 'arco' in proficiencies: return True
+    if 'balestra' in option_str_lower and 'balestra leggera' in proficiencies: return True
+    if 'mazza' in option_str_lower and 'semplice' in proficiencies: return True # Caso specifico per Chierico
+    if 'martello da guerra' in option_str_lower and 'semplice' in proficiencies: return True
+    if 'ascia bipenne' in option_str_lower and 'da guerra' in proficiencies: return True
+    if 'asce da mano' in option_str_lower and 'semplice' in proficiencies: return True
+    if 'scimitarra' in option_str_lower and 'semplice' in proficiencies: return True
+    if 'bastone' in option_str_lower and 'semplice' in proficiencies: return True
+    if 'pugnale' in option_str_lower and 'semplice' in proficiencies: return True
+    if 'giavellotti' in option_str_lower and 'semplice' in proficiencies: return True
+
+    # Pacchetti e oggetti generici
+    if any(item in option_str_lower for item in ['pacchetto', 'focus', 'borsa', 'liuto', 'giavellotti', 'dardi', 'frecce', 'libro', 'simbolo', 'scudo di legno', 'due pugnali', 'attrezzi da scasso', 'scudo']):
+        return True
+
+    return False
+
+def get_asi_levels(classe, livello):
+    levels = []
+    base_levels = [4, 8, 12, 16, 19]
+    if classe == 'Guerriero':
+        base_levels.extend([6, 14])
+    if classe == 'Ladro':
+        base_levels.extend([10, 18])
+    for l in base_levels:
+        if l <= livello:
+            levels.append(l)
+    return sorted(list(set(levels)))
+
+# Handlers
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Benvenuto! Quanti personaggi vuoi creare? (1-10)", reply_markup=ReplyKeyboardRemove())
     return QUANTI_PERSONAGGI
@@ -241,22 +243,87 @@ async def inizia_creazione_personaggio(update: Update, context: ContextTypes.DEF
         await update.message.reply_text("Creazione terminata. Grazie!", reply_markup=ReplyKeyboardRemove())
         context.user_data.clear()
         return ConversationHandler.END
-    
+
     context.user_data['num_rimanenti'] -= 1
     context.user_data['talenti'] = []
-    context.user_data['equipaggiamento'] = []
+    context.user_data['equipaggiamento_scelto'] = []
+    context.user_data['equipaggiamento_fisso'] = []
     context.user_data['competenze'] = []
-    context.user_data['lingue'] = []
+    context.user_data['lingue'] = ['Comune']
+    context.user_data['trucchetti_scelti'] = []
+    context.user_data['incantesimi_scelti'] = []
+    context.user_data['lista_incantesimi_da_scegliere'] = []
+    context.user_data['lista_trucchetti_da_scegliere'] = []
+    context.user_data['stats_da_assegnare'] = roll_dnd_stats()
+    context.user_data['stats'] = {'Forza': 0, 'Destrezza': 0, 'Costituzione': 0, 'Intelligenza': 0, 'Saggezza': 0, 'Carisma': 0}
 
-    reply_keyboard = [list(classi_disponibili.keys())[i:i + 3] for i in range(0, len(classi_disponibili), 3)]
-    
-    message_text = (
-        f"Creazione personaggio #{context.user_data['num_personaggi_iniziali'] - context.user_data['num_rimanenti']}/{context.user_data['num_personaggi_iniziali']}\n"
-        "Per iniziare, quale classe vuoi scegliere?"
+    message_text = f"Creazione personaggio #{context.user_data['num_personaggi_iniziali'] - context.user_data['num_rimanenti']}/{context.user_data['num_personaggi_iniziali']}\n"
+    message_text += "Per prima cosa, che nome avrà il tuo personaggio?"
+    await update.message.reply_text(message_text, reply_markup=ReplyKeyboardRemove())
+    return INSERISCI_NOME
+
+async def inserisci_nome(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    nome_personaggio = update.message.text.strip()
+    if not nome_personaggio:
+        await update.message.reply_text("Per favore, inserisci un nome valido.")
+        return INSERISCI_NOME
+    context.user_data['nome'] = nome_personaggio
+
+    reply_keyboard = [razze_disponibili[i:i + 3] for i in range(0, len(razze_disponibili), 3)]
+    await update.message.reply_text(
+        f"Ottimo, {nome_personaggio}! Ora scegli la sua razza.",
+        reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True)
     )
+    return SCEGLI_RAZZA
+
+async def scegli_razza(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    razza_scelta = update.message.text
+    if razza_scelta not in razze_disponibili:
+        await update.message.reply_text("Per favore, scegli una razza dalla lista.")
+        return SCEGLI_RAZZA
+    context.user_data['razza'] = razza_scelta
+
+    stats_rolled = context.user_data['stats_da_assegnare']
+    message_text = (
+        f"Hai ottenuto i seguenti punteggi: {', '.join(map(str, stats_rolled))}\n\n"
+        f"Scegli dove assegnare il tuo punteggio più alto, che è {stats_rolled[0]}."
+    )
+    reply_keyboard = [['Forza', 'Destrezza', 'Costituzione'], ['Intelligenza', 'Saggezza', 'Carisma']]
 
     await update.message.reply_text(
         message_text,
+        reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True)
+    )
+    return ASSEGNA_STAT
+
+async def assegna_stat(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    stat_choice = update.message.text
+    if stat_choice not in context.user_data['stats'] or context.user_data['stats'][stat_choice] != 0:
+        await update.message.reply_text("Scelta non valida o statistica già assegnata. Scegli una statistica libera.")
+        return ASSEGNA_STAT
+
+    stats_da_assegnare = context.user_data['stats_da_assegnare']
+    context.user_data['stats'][stat_choice] = stats_da_assegnare.pop(0)
+
+    if not stats_da_assegnare:
+        return await chiedi_classe(update, context)
+
+    message = f"Punteggio {context.user_data['stats'][stat_choice]} assegnato a {stat_choice}.\n"
+    message += f"Ora scegli dove assegnare il prossimo punteggio: {stats_da_assegnare[0]}"
+
+    stats_libere = [s for s, v in context.user_data['stats'].items() if v == 0]
+    reply_keyboard = [stats_libere[i:i + 3] for i in range(0, len(stats_libere), 3)]
+
+    await update.message.reply_text(
+        message,
+        reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True)
+    )
+    return ASSEGNA_STAT
+
+async def chiedi_classe(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    reply_keyboard = [list(classi_disponibili.keys())[i:i + 3] for i in range(0, len(classi_disponibili), 3)]
+    await update.message.reply_text(
+        "Ottimo! Ora scegli la classe.",
         reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True)
     )
     return SCEGLI_CLASSE
@@ -264,11 +331,10 @@ async def inizia_creazione_personaggio(update: Update, context: ContextTypes.DEF
 async def classe_scelta(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_choice = update.message.text
     if user_choice not in classi_disponibili:
-        await update.message.reply_text("Per favore, scegli una classe dalla lista.")
+        await update.message.reply_text("Per favor, scegli una classe dalla lista.")
         return SCEGLI_CLASSE
     context.user_data['classe'] = user_choice
-    context.user_data['stats'] = assign_stats(user_choice, roll_dnd_stats())
-    
+
     sottoclassi = classi_disponibili[user_choice]
     reply_keyboard = [sottoclassi[i:i + 2] for i in range(0, len(sottoclassi), 2)]
     await update.message.reply_text(
@@ -284,45 +350,23 @@ async def sottoclasse_scelta(update: Update, context: ContextTypes.DEFAULT_TYPE)
         await update.message.reply_text("Per favore, scegli una sottoclasse dalla lista.")
         return SCEGLI_SOTTOCLASSE
     context.user_data['sottoclasse'] = user_choice
-    
-    # Assegna le competenze di classe e sottoclasse
+
     context.user_data['competenze'] = assegna_competenze(classe, user_choice)
-    
-    # Inizia la logica per l'equipaggiamento
-    equip_options = equipaggiamento_iniziale.get(classe, [])
-    if equip_options:
-        context.user_data['opzioni_equip_rimanenti'] = [opzione for opzione in equip_options if isinstance(opzione, list)]
-        context.user_data['equip_fisso'] = [opzione for opzione in equip_options if isinstance(opzione, str)]
-        return await chiedi_equipaggiamento(update, context)
-    else:
-        await update.message.reply_text("La tua classe non ha opzioni di equipaggiamento da scegliere. Passiamo al livello.")
-        return await chiedi_livello(update, context)
+
+    equip_options = equipaggiamento_iniziale_nuovo.get(classe, {})
+    context.user_data['opzioni_equip_rimanenti'] = [v for k, v in equip_options.items() if k.startswith('scelta')]
+    context.user_data['equipaggiamento_fisso'] = equip_options.get('fisso', [])
+
+    return await chiedi_equipaggiamento(update, context)
 
 async def chiedi_equipaggiamento(update: Update, context: ContextTypes.DEFAULT_TYPE):
     opzioni_rimanenti = context.user_data.get('opzioni_equip_rimanenti')
-    
+
     if not opzioni_rimanenti:
         return await chiedi_livello(update, context)
 
     opzioni = opzioni_rimanenti[0]
-    
-    # Filtra le opzioni in base alle competenze del personaggio
-    opzioni_valide = []
-    for opzione in opzioni:
-        is_valida = True
-        # Controlla se l'opzione contiene un tipo di armatura
-        if 'armatura' in opzione:
-            tipo_armatura = 'pesante' if 'pesante' in opzione else 'media' if 'media' in opzione else 'leggera'
-            if tipo_armatura not in context.user_data['competenze']:
-                is_valida = False
-        # Controlla se l'opzione contiene un tipo di arma
-        if 'arma' in opzione:
-            tipo_arma = 'marziale' if 'marziale' in opzione else 'semplice'
-            if tipo_arma not in context.user_data['competenze']:
-                is_valida = False
-        
-        if is_valida:
-            opzioni_valide.append(opzione)
+    opzioni_valide = [opt for opt in opzioni if check_proficiency(opt, context.user_data['competenze'])]
 
     if not opzioni_valide:
         await update.message.reply_text("Ops, non ci sono opzioni di equipaggiamento valide per la tua classe. Passiamo alla prossima scelta.")
@@ -330,7 +374,7 @@ async def chiedi_equipaggiamento(update: Update, context: ContextTypes.DEFAULT_T
         return await chiedi_equipaggiamento(update, context)
 
     reply_keyboard = [opzioni_valide[i:i + 2] for i in range(0, len(opzioni_valide), 2)]
-    
+
     await update.message.reply_text(
         f"Scegli l'equipaggiamento per la tua classe:",
         reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True)
@@ -345,13 +389,10 @@ async def gestisci_scelta_equipaggiamento(update: Update, context: ContextTypes.
         await update.message.reply_text("Scelta non valida. Per favore, scegli un'opzione dalla tastiera.")
         return SCEGLI_EQUIPAGGIAMENTO
 
-    context.user_data['equipaggiamento'].append(user_choice)
+    context.user_data['equipaggiamento_scelto'].append(user_choice)
     opzioni_rimanenti.pop(0)
 
-    if opzioni_rimanenti:
-        return await chiedi_equipaggiamento(update, context)
-    else:
-        return await chiedi_livello(update, context)
+    return await chiedi_equipaggiamento(update, context)
 
 async def chiedi_livello(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
@@ -368,179 +409,214 @@ async def livello_scelto(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except (ValueError, TypeError):
         await update.message.reply_text("Per favore, inserisci un numero da 1 a 20.")
         return SCEGLI_LIVELLO
-        
-    context.user_data['livello'] = livello
-    context.user_data['punti_asi_da_distribuire'] = 0
-    
-    if livello >= 8:
-        reply_keyboard = [['2 ASI (+4 punti)', '1 ASI + 1 Talento', '2 Talenti']]
-        await update.message.reply_text(
-            f"A livello 8, hai a disposizione un'altra scelta.\n"
-            "Cosa vuoi fare?",
-            reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True)
-        )
-        return SCEGLI_BONUS_LIV8
-    elif livello >= 4:
-        reply_keyboard = [['2 punti nelle statistiche', '1 talento']]
-        await update.message.reply_text(
-            "A livello 4, hai una scelta da fare.\n"
-            "Vuoi usare 2 punti nelle statistiche o scegliere un talento?",
-            reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True)
-        )
-        return SCEGLI_BONUS_LIV4
-    
-    return await chiedi_lingue(update, context)
 
-async def scegli_bonus_liv4(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    context.user_data['livello'] = livello
+    context.user_data['livelli_bonus_da_applicare'] = get_asi_levels(context.user_data['classe'], livello)
+
+    return await gestisci_bonus(update, context)
+
+async def gestisci_bonus(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    livelli_bonus = context.user_data['livelli_bonus_da_applicare']
+    if not livelli_bonus:
+        # Dopo ASI/Talenti, controlla se la classe ha magia
+        if context.user_data['classe'] in incantatori and context.user_data['livello'] >= 1:
+            return await gestisci_magie_e_trucchetti(update, context)
+        else:
+            return await chiedi_lingue(update, context)
+
+    livello_corrente_bonus = livelli_bonus.pop(0)
+    context.user_data['livello_corrente_bonus'] = livello_corrente_bonus
+
+    reply_keyboard = [['2 punti nelle statistiche', '1 talento']]
+    await update.message.reply_text(
+        f"Al livello {livello_corrente_bonus}, hai una scelta da fare.\n"
+        "Vuoi usare 2 punti nelle statistiche o scegliere un talento?",
+        reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True)
+    )
+    return SCEGLI_BONUS
+
+async def scegli_bonus(update: Update, context: ContextTypes.DEFAULT_TYPE):
     choice = update.message.text
     if choice == '2 punti nelle statistiche':
         context.user_data['punti_asi_da_distribuire'] = 2
-        await update.message.reply_text(
-            "Perfetto! Scegli la prima statistica da aumentare di 1 punto.",
-            reply_markup=ReplyKeyboardMarkup([['Forza', 'Destrezza', 'Costituzione'], ['Intelligenza', 'Saggezza', 'Carisma']], one_time_keyboard=True)
-        )
-        return APPLICA_ASI_1
+        return await applica_asi_step(update, context)
     elif choice == '1 talento':
-        classe = context.user_data['classe']
-        talenti_disponibili_per_classe = talenti_per_classe.get(classe, [])
-        reply_keyboard = [talenti_disponibili_per_classe[i:i+2] for i in range(0, len(talenti_disponibili_per_classe), 2)]
-        
-        await update.message.reply_text("Scegli un talento dalla lista:",
-            reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True)
-        )
         context.user_data['talenti_da_scegliere'] = 1
-        return SCEGLI_TALENTO_1
+        return await scegli_talento_step(update, context)
     else:
         await update.message.reply_text("Scelta non valida. Riprova.")
-        return SCEGLI_BONUS_LIV4
+        context.user_data['livelli_bonus_da_applicare'].insert(0, context.user_data['livello_corrente_bonus'])
+        return SCEGLI_BONUS
 
-async def scegli_bonus_liv8(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    choice = update.message.text
-    if choice == '2 ASI (+4 punti)':
-        context.user_data['punti_asi_da_distribuire'] = 4
-        await update.message.reply_text(
-            "Perfetto! Scegli la prima statistica da aumentare di 1 punto. (Hai 4 punti da distribuire)",
-            reply_markup=ReplyKeyboardMarkup([['Forza', 'Destrezza', 'Costituzione'], ['Intelligenza', 'Saggezza', 'Carisma']], one_time_keyboard=True)
-        )
-        return APPLICA_ASI_1
-    elif choice == '1 ASI + 1 Talento':
-        context.user_data['punti_asi_da_distribuire'] = 2
-        context.user_data['talenti_da_scegliere'] = 1
-        await update.message.reply_text(
-            "Perfetto! Scegli la prima statistica da aumentare di 1 punto.",
-            reply_markup=ReplyKeyboardMarkup([['Forza', 'Destrezza', 'Costituzione'], ['Intelligenza', 'Saggezza', 'Carisma']], one_time_keyboard=True)
-        )
-        return APPLICA_ASI_1
-    elif choice == '2 Talenti':
-        context.user_data['talenti_da_scegliere'] = 2
-        
-        classe = context.user_data['classe']
-        talenti_disponibili_per_classe = talenti_per_classe.get(classe, [])
-        reply_keyboard = [talenti_disponibili_per_classe[i:i+2] for i in range(0, len(talenti_disponibili_per_classe), 2)]
-        
-        await update.message.reply_text("Scegli il tuo primo talento:",
-            reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True)
-        )
-        return SCEGLI_TALENTO_1
-    else:
-        await update.message.reply_text("Scelta non valida. Riprova.")
-        return SCEGLI_BONUS_LIV8
+async def applica_asi_step(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    stats_list = [['Forza', 'Destrezza', 'Costituzione'], ['Intelligenza', 'Saggezza', 'Carisma']]
+    await update.message.reply_text(
+        f"Perfetto! Scegli la statistica da aumentare di 1 punto. Ti rimangono {context.user_data['punti_asi_da_distribuire']} punti.",
+        reply_markup=ReplyKeyboardMarkup(stats_list, one_time_keyboard=True)
+    )
+    return APPLICA_ASI
 
-async def applica_asi_1(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def applica_asi(update: Update, context: ContextTypes.DEFAULT_TYPE):
     stat_choice = update.message.text
     if stat_choice not in context.user_data['stats']:
         await update.message.reply_text("Scelta non valida. Riprova.")
-        return APPLICA_ASI_1
-    
+        return APPLICA_ASI
+
     context.user_data['stats'][stat_choice] += 1
     context.user_data['punti_asi_da_distribuire'] -= 1
-    
-    if context.user_data['punti_asi_da_distribuire'] > 0:
-        await update.message.reply_text(
-            f"Ottimo. Scegli un'altra statistica da aumentare di 1 punto. Ti rimangono {context.user_data['punti_asi_da_distribuire']} punti.",
-            reply_markup=ReplyKeyboardMarkup([['Forza', 'Destrezza', 'Costituzione'], ['Intelligenza', 'Saggezza', 'Carisma']], one_time_keyboard=True)
-        )
-        return APPLICA_ASI_1
-    
-    return await gestisci_transizione(update, context)
 
-async def scegli_talento_1(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if context.user_data['punti_asi_da_distribuire'] > 0:
+        return await applica_asi_step(update, context)
+
+    return await gestisci_bonus(update, context)
+
+async def scegli_talento_step(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    classe = context.user_data['classe']
+    talenti_disponibili_per_classe = talenti_per_classe.get(classe, [])
+    reply_keyboard = [talenti_disponibili_per_classe[i:i + 2] for i in range(0, len(talenti_disponibili_per_classe), 2)]
+
+    await update.message.reply_text(
+        f"Scegli un talento dalla lista. Ti rimangono {context.user_data['talenti_da_scegliere']} talenti da scegliere.",
+        reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True)
+    )
+    return SCEGLI_TALENTO
+
+async def scegli_talento(update: Update, context: ContextTypes.DEFAULT_TYPE):
     feat_choice = update.message.text
     classe = context.user_data['classe']
     if feat_choice not in talenti_per_classe.get(classe, []):
         await update.message.reply_text("Talento non valido. Riprova.")
-        return SCEGLI_TALENTO_1
-    
+        return SCEGLI_TALENTO
+
     context.user_data['talenti'].append(feat_choice)
     context.user_data['talenti_da_scegliere'] -= 1
 
-    return await gestisci_transizione(update, context)
+    if context.user_data['talenti_da_scegliere'] > 0:
+        return await scegli_talento_step(update, context)
 
-async def gestisci_transizione(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if context.user_data.get('talenti_da_scegliere', 0) > 0:
-        classe = context.user_data['classe']
-        talenti_disponibili_per_classe = talenti_per_classe.get(classe, [])
-        reply_keyboard = [talenti_disponibili_per_classe[i:i+2] for i in range(0, len(talenti_disponibili_per_classe), 2)]
-        
-        await update.message.reply_text("Ora scegli il tuo prossimo talento:",
-            reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True)
-        )
-        return SCEGLI_TALENTO_1
-    else:
-        return await chiedi_lingue(update, context)
+    return await gestisci_bonus(update, context)
+
+async def gestisci_magie_e_trucchetti(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    classe = context.user_data['classe']
+    opzioni_magia = magie_iniziali.get(classe, {})
+
+    # Gestione Trucchetti
+    if opzioni_magia.get('trucchetti', 0) > 0 and not context.user_data.get('trucchetti_finiti', False):
+        context.user_data['numero_trucchetti_da_scegliere'] = opzioni_magia['trucchetti']
+        context.user_data['lista_trucchetti_da_scegliere'] = trucchetti_disponibili.get(classe, [])
+        return await scegli_trucchetto(update, context)
+
+    # Gestione Incantesimi
+    if opzioni_magia.get('incantesimi', 0) > 0 and not context.user_data.get('incantesimi_finiti', False):
+        context.user_data['numero_incantesimi_da_scegliere'] = opzioni_magia['incantesimi']
+        context.user_data['lista_incantesimi_da_scegliere'] = incantesimi_disponibili.get(classe, [])
+        return await scegli_incantesimo(update, context)
+
+    # Se non ha più magie da scegliere, passa alle lingue
+    return await chiedi_lingue(update, context)
+
+
+async def scegli_trucchetto(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    lista_trucchetti = context.user_data['lista_trucchetti_da_scegliere']
+    reply_keyboard = [lista_trucchetti[i:i + 2] for i in range(0, len(lista_trucchetti), 2)]
+
+    await update.message.reply_text(
+        f"Scegli un trucchetto. Ti rimangono {context.user_data['numero_trucchetti_da_scegliere']} da scegliere.",
+        reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True)
+    )
+    return SCEGLI_TRUCCHETTI_E_INCANTESIMI
+
+async def scegli_incantesimo(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    lista_incantesimi = context.user_data['lista_incantesimi_da_scegliere']
+    reply_keyboard = [lista_incantesimi[i:i + 2] for i in range(0, len(lista_incantesimi), 2)]
+
+    await update.message.reply_text(
+        f"Scegli un incantesimo. Ti rimangono {context.user_data['numero_incantesimi_da_scegliere']} da scegliere.",
+        reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True)
+    )
+    return SCEGLI_TRUCCHETTI_E_INCANTESIMI
+
+async def gestisci_scelta_magia(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_choice = update.message.text
+    
+    # Check if a trucchetto is being selected
+    if context.user_data.get('numero_trucchetti_da_scegliere', 0) > 0:
+        if user_choice not in context.user_data['lista_trucchetti_da_scegliere']:
+            await update.message.reply_text("Scelta non valida. Riprova.")
+            return await scegli_trucchetto(update, context)
+
+        context.user_data['trucchetti_scelti'].append(user_choice)
+        context.user_data['numero_trucchetti_da_scegliere'] -= 1
+        context.user_data['lista_trucchetti_da_scegliere'].remove(user_choice)
+
+        if context.user_data['numero_trucchetti_da_scegliere'] > 0:
+            return await scegli_trucchetto(update, context)
+        else:
+            context.user_data['trucchetti_finiti'] = True
+            return await gestisci_magie_e_trucchetti(update, context)
+
+    # Check if a spell is being selected
+    if context.user_data.get('numero_incantesimi_da_scegliere', 0) > 0:
+        if user_choice not in context.user_data['lista_incantesimi_da_scegliere']:
+            await update.message.reply_text("Scelta non valida. Riprova.")
+            return await scegli_incantesimo(update, context)
+
+        context.user_data['incantesimi_scelti'].append(user_choice)
+        context.user_data['numero_incantesimi_da_scegliere'] -= 1
+        context.user_data['lista_incantesimi_da_scegliere'].remove(user_choice)
+
+        if context.user_data['numero_incantesimi_da_scegliere'] > 0:
+            return await scegli_incantesimo(update, context)
+        else:
+            context.user_data['incantesimi_finiti'] = True
+            return await gestisci_magie_e_trucchetti(update, context)
+
+    # Should not be reached
+    await update.message.reply_text("Errore nella selezione della magia. Riproviamo da capo.", reply_markup=ReplyKeyboardRemove())
+    return ConversationHandler.END
+
 
 async def chiedi_lingue(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    classe = context.user_data['classe']
-    num_lingue = lingue_conoscibili['numero_lingue_extra'].get(classe, 0)
-    
-    if num_lingue > 0:
-        context.user_data['lingue_da_scegliere'] = num_lingue
-        
-        lingue_disponibili = lingue_conoscibili['standard'] + lingue_conoscibili['esotiche']
-        reply_keyboard = [lingue_disponibili[i:i+3] for i in range(0, len(lingue_disponibili), 3)]
-        
-        await update.message.reply_text(
-            f"Scegli {num_lingue} lingua/e extra per il tuo personaggio:",
-            reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=False)
-        )
-        return SCEGLI_LINGUE
-    else:
-        return await finalize_character(update, context)
+    context.user_data['lingue_da_scegliere'] = 1
+    lingue_disponibili = [l for l in lingue_conoscibili['standard'] + lingue_conoscibili['esotiche'] if l not in context.user_data['lingue']]
+    reply_keyboard = [lingue_disponibili[i:i + 3] for i in range(0, len(lingue_disponibili), 3)]
+
+    await update.message.reply_text(
+        f"Scegli una lingua extra per il tuo personaggio (il Comune è automatico):",
+        reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True)
+    )
+    return SCEGLI_LINGUE
 
 async def gestisci_lingue(update: Update, context: ContextTypes.DEFAULT_TYPE):
     lingua_scelta = update.message.text
-    lingue_disponibili = lingue_conoscibili['standard'] + lingue_conoscibili['esotiche']
+    lingue_disponibili_tutte = lingue_conoscibili['standard'] + lingue_conoscibili['esotiche']
     
-    if lingua_scelta not in lingue_disponibili:
-        await update.message.reply_text("Lingua non valida. Per favore, scegli una lingua dalla lista.")
+    if lingua_scelta not in lingue_disponibili_tutte or lingua_scelta in context.user_data['lingue']:
+        await update.message.reply_text("Lingua non valida o già scelta. Per favore, scegli una lingua dalla lista.")
         return SCEGLI_LINGUE
-    
+
     context.user_data['lingue'].append(lingua_scelta)
     context.user_data['lingue_da_scegliere'] -= 1
     
-    if context.user_data['lingue_da_scegliere'] > 0:
-        lingue_rimanenti = [l for l in lingue_disponibili if l not in context.user_data['lingue']]
-        reply_keyboard = [lingue_rimanenti[i:i+3] for i in range(0, len(lingue_rimanenti), 3)]
-        
-        await update.message.reply_text(
-            f"Ancora {context.user_data['lingue_da_scegliere']} lingua/e da scegliere:",
-            reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=False)
-        )
-        return SCEGLI_LINGUE
-    else:
-        return await finalize_character(update, context)
+    # Non essendoci più lingue da scegliere, passiamo alla finalizzazione.
+    return await finalize_character(update, context)
 
 
 async def finalize_character(update: Update, context: ContextTypes.DEFAULT_TYPE):
     stats_final = context.user_data['stats']
     talenti_final = ", ".join(context.user_data['talenti']) if context.user_data['talenti'] else "Nessuno"
-    equip_scelto = ", ".join(context.user_data['equipaggiamento']) if context.user_data['equipaggiamento'] else "Nessuno"
-    equip_fisso = ", ".join(context.user_data['equip_fisso']) if context.user_data['equip_fisso'] else "Nessuno"
+    equip_scelto = ", ".join(context.user_data['equipaggiamento_scelto']) if context.user_data['equipaggiamento_scelto'] else "Nessuno"
+    equip_fisso = ", ".join(context.user_data['equipaggiamento_fisso']) if context.user_data['equipaggiamento_fisso'] else "Nessuno"
     competenze_final = ", ".join(context.user_data['competenze']) if context.user_data['competenze'] else "Nessuna"
-    lingue_final = ", ".join(context.user_data['lingue']) if context.user_data['lingue'] else "Comune (fisso) e nessuna extra"
-    
+    lingue_final = ", ".join(context.user_data['lingue']) if context.user_data['lingue'] else "Nessuna"
+    trucchetti_final = ", ".join(context.user_data['trucchetti_scelti']) if context.user_data['trucchetti_scelti'] else "Nessuno"
+    incantesimi_final = ", ".join(context.user_data['incantesimi_scelti']) if context.user_data['incantesimi_scelti'] else "Nessuno"
+
+
     message = (
         "<b>Personaggio generato! ✨</b>\n\n"
+        f"<b>Nome:</b> {context.user_data['nome']}\n"
+        f"<b>Razza:</b> {context.user_data['razza']}\n"
         f"<b>Classe:</b> {context.user_data['classe']}\n"
         f"<b>Sottoclasse:</b> {context.user_data['sottoclasse']}\n"
         f"<b>Livello:</b> {context.user_data['livello']}\n\n"
@@ -552,21 +628,23 @@ async def finalize_character(update: Update, context: ContextTypes.DEFAULT_TYPE)
         f"Saggezza: {stats_final['Saggezza']}\n"
         f"Carisma: {stats_final['Carisma']}\n\n"
         f"<b>Equipaggiamento:</b>\n"
-        f"  - Scelte: {equip_scelto}\n"
-        f"  - Fisso: {equip_fisso}\n\n"
+        f"  - Scelte: {equip_scelto}\n"
+        f"  - Fisso: {equip_fisso}\n\n"
         f"<b>Competenze:</b>\n"
         f"{competenze_final}\n\n"
         f"<b>Lingue:</b>\n"
         f"{lingue_final}\n\n"
-        f"<b>Talenti:</b> {talenti_final}"
+        f"<b>Talenti:</b> {talenti_final}\n\n"
+        f"<b>Magie:</b>\n"
+        f"  - Trucchetti: {trucchetti_final}\n"
+        f"  - Incantesimi: {incantesimi_final}"
     )
 
     await update.message.reply_html(message, reply_markup=ReplyKeyboardRemove())
-    
-    # Continua la creazione se ci sono altri personaggi
+
     if context.user_data.get('num_rimanenti', 0) > 0:
         return await inizia_creazione_personaggio(update, context)
-    
+
     context.user_data.clear()
     return ConversationHandler.END
 
@@ -575,38 +653,34 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data.clear()
     return ConversationHandler.END
 
-async def next_char(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if context.user_data.get('num_rimanenti', 0) > 0:
-        return await inizia_creazione_personaggio(update, context)
-    await update.message.reply_text('Nessun altro personaggio da creare. Invia /crea per iniziare.', reply_markup=ReplyKeyboardRemove())
-    return ConversationHandler.END
-
 def main():
-    if not TELEGRAM_TOKEN:
-        print("Errore: il token Telegram non è stato impostato.")
+    if TELEGRAM_TOKEN == "YOUR_TOKEN_HERE":
+        print("Errore: il token Telegram non è stato impostato. Per favore, sostituisci 'YOUR_TOKEN_HERE' con il tuo token o imposta la variabile d'ambiente TELEGRAM_TOKEN.")
         return
 
     app = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
-    
+
     conv_handler = ConversationHandler(
         entry_points=[CommandHandler("crea", start)],
         states={
             QUANTI_PERSONAGGI: [MessageHandler(filters.TEXT & ~filters.COMMAND, quanti_personaggi)],
+            INSERISCI_NOME: [MessageHandler(filters.TEXT & ~filters.COMMAND, inserisci_nome)],
+            SCEGLI_RAZZA: [MessageHandler(filters.TEXT & ~filters.COMMAND, scegli_razza)],
+            ASSEGNA_STAT: [MessageHandler(filters.TEXT & ~filters.COMMAND, assegna_stat)],
             SCEGLI_CLASSE: [MessageHandler(filters.TEXT & ~filters.COMMAND, classe_scelta)],
             SCEGLI_SOTTOCLASSE: [MessageHandler(filters.TEXT & ~filters.COMMAND, sottoclasse_scelta)],
             SCEGLI_EQUIPAGGIAMENTO: [MessageHandler(filters.TEXT & ~filters.COMMAND, gestisci_scelta_equipaggiamento)],
             SCEGLI_LIVELLO: [MessageHandler(filters.TEXT & ~filters.COMMAND, livello_scelto)],
-            SCEGLI_BONUS_LIV4: [MessageHandler(filters.TEXT & ~filters.COMMAND, scegli_bonus_liv4)],
-            SCEGLI_BONUS_LIV8: [MessageHandler(filters.TEXT & ~filters.COMMAND, scegli_bonus_liv8)],
-            APPLICA_ASI_1: [MessageHandler(filters.TEXT & ~filters.COMMAND, applica_asi_1)],
-            SCEGLI_TALENTO_1: [MessageHandler(filters.TEXT & ~filters.COMMAND, scegli_talento_1)],
+            SCEGLI_BONUS: [MessageHandler(filters.TEXT & ~filters.COMMAND, scegli_bonus)],
+            APPLICA_ASI: [MessageHandler(filters.TEXT & ~filters.COMMAND, applica_asi)],
+            SCEGLI_TALENTO: [MessageHandler(filters.TEXT & ~filters.COMMAND, scegli_talento)],
+            SCEGLI_TRUCCHETTI_E_INCANTESIMI: [MessageHandler(filters.TEXT & ~filters.COMMAND, gestisci_scelta_magia)],
             SCEGLI_LINGUE: [MessageHandler(filters.TEXT & ~filters.COMMAND, gestisci_lingue)],
         },
-        fallbacks=[CommandHandler('cancel', cancel), CommandHandler('start', start), CommandHandler('next', next_char)],
+        fallbacks=[CommandHandler('cancel', cancel), CommandHandler('start', start)],
     )
 
     app.add_handler(conv_handler)
-    app.add_handler(CommandHandler('next', next_char))
     print("Bot avviato... premi Ctrl+C per fermarlo.")
     app.run_polling(poll_interval=2.0)
 
