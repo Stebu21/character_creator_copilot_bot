@@ -7,10 +7,10 @@ TELEGRAM_TOKEN = "Inserire telegram token"
 
 # Stati della conversazione
 (
-    QUANTI_PERSONAGGI, SCEGLI_CLASSE, SCEGLI_SOTTOCLASSE, SCEGLI_LIVELLO,
-    SCEGLI_BONUS_LIV4, SCEGLI_BONUS_LIV8, APPLICA_ASI_1,
+    QUANTI_PERSONAGGI, SCEGLI_CLASSE, SCEGLI_SOTTOCLASSE, SCEGLI_EQUIPAGGIAMENTO, 
+    SCEGLI_LIVELLO, SCEGLI_BONUS_LIV4, SCEGLI_BONUS_LIV8, APPLICA_ASI_1,
     SCEGLI_TALENTO_1, FINE_CREAZIONE
-) = range(9)
+) = range(10)
 
 # Dati di D&D - LISTA COMPLETA
 classi_disponibili = {
@@ -64,6 +64,89 @@ talenti_per_classe = {
     'Mago da Guerra': ['War Caster', 'Spell Sniper', 'Elemental Adept', 'Resilient (Intelligence)', 'Fey Touched', 'Ritual Caster'],
 }
 
+equipaggiamento_iniziale = {
+    'Barbaro': [
+        ['Ascia bipenne', 'Qualsiasi arma marziale da mischia'],
+        ['Un pacchetto da esploratore', 'Quattro giavellotti'],
+        'Un\'arma da mischia semplice e due asce da mano'
+    ],
+    'Bardo': [
+        ['Un\'armatura di cuoio', 'Nessuna armatura'],
+        ['Stocco', 'Spada lunga', 'Qualsiasi arma semplice'],
+        ['Un pacchetto da diplomatico', 'Un pacchetto da intrattenitore'],
+        'Uno strumento musicale e un\'arma semplice'
+    ],
+    'Chierico': [
+        ['Mazza', 'Martello da guerra'],
+        ['Armatura di maglia', 'Armatura di cuoio', 'Armatura di scaglie'],
+        ['Uno scudo', 'Nessuno scudo'],
+        ['Un pacchetto da esploratore', 'Un pacchetto da sacerdote']
+    ],
+    'Druido': [
+        ['Scudo di legno', 'Qualsiasi arma semplice da mischia'],
+        ['Un pacchetto da esploratore', 'Un pacchetto da sacerdote'],
+        'Un\'armatura di cuoio, una scimitarra, un\'ascia da mano e uno scudo di legno'
+    ],
+    'Guerriero': [
+        ['Armatura di maglia', 'Armatura di cuoio'],
+        ['Uno scudo', 'Due armi semplici'],
+        ['Una spada lunga', 'Un\'ascia da battaglia'],
+        ['Un pacchetto da esploratore', 'Un pacchetto da guerriero']
+    ],
+    'Ladro': [
+        ['Uno stocco', 'Una spada corta'],
+        ['Un arco corto con 20 frecce', 'Due pugnali'],
+        ['Un pacchetto da scassinatore', 'Un pacchetto da esploratore'],
+        'Un pacchetto da intrattenitore',
+        'Un\'armatura di cuoio e due pugnali'
+    ],
+    'Mago': [
+        ['Un bastone', 'Un pugnale'],
+        ['Un pacchetto da studioso', 'Un pacchetto da avventuriero'],
+        'Un tomo di incantesimi, un focus arcano, due pugnali'
+    ],
+    'Monaco': [
+        ['Spada corta', 'Qualsiasi arma semplice'],
+        ['Un pacchetto da esploratore', 'Un pacchetto da avventuriero'],
+        'Due pugnali e dieci giavellotti'
+    ],
+    'Paladino': [
+        ['Armatura di maglia', 'Armatura di cuoio'],
+        ['Scudo', 'Nessuno scudo'],
+        ['Una spada lunga', 'Un\'ascia da battaglia'],
+        ['Un pacchetto da guerriero', 'Un pacchetto da esploratore']
+    ],
+    'Ranger': [
+        ['Armatura di maglia', 'Armatura di cuoio'],
+        ['Spada corta', 'Qualsiasi arma semplice'],
+        ['Un arco corto con 20 frecce', 'Due pugnali'],
+        ['Un pacchetto da esploratore', 'Un pacchetto da avventuriero']
+    ],
+    'Stregone': [
+        ['Una spada corta', 'Qualsiasi arma semplice'],
+        ['Un pacchetto da esploratore', 'Un pacchetto da studioso'],
+        ['Un focus arcano', 'Due pugnali'],
+        'Un\'armatura di stoffa e una faretra con 20 frecce'
+    ],
+    'Warlock': [
+        ['Balestra leggera', 'Qualsiasi arma semplice'],
+        ['Un pacchetto da avventuriero', 'Un pacchetto da studioso'],
+        ['Un focus arcano', 'Due pugnali']
+    ],
+    'Artefice': [
+        ['Martello leggero', 'Martello da guerra'],
+        ['Armatura di cuoio', 'Armatura di scaglie'],
+        ['Uno scudo', 'Nessuno scudo'],
+        ['Un pacchetto da esploratore', 'Un pacchetto da artigiano']
+    ],
+    'Mago da Guerra': [
+        ['Balestra leggera', 'Qualsiasi arma semplice'],
+        ['Armatura di cuoio', 'Armatura di scaglie'],
+        ['Uno scudo', 'Nessuno scudo'],
+        ['Un pacchetto da avventuriero', 'Un pacchetto da studioso']
+    ],
+}
+
 def roll_dnd_stats():
     stats_list = []
     for _ in range(6):
@@ -114,6 +197,7 @@ async def inizia_creazione_personaggio(update: Update, context: ContextTypes.DEF
     
     context.user_data['num_rimanenti'] -= 1
     context.user_data['talenti'] = []
+    context.user_data['equipaggiamento'] = []
 
     reply_keyboard = [list(classi_disponibili.keys())[i:i + 3] for i in range(0, len(classi_disponibili), 3)]
     
@@ -151,8 +235,51 @@ async def sottoclasse_scelta(update: Update, context: ContextTypes.DEFAULT_TYPE)
         await update.message.reply_text("Per favore, scegli una sottoclasse dalla lista.")
         return SCEGLI_SOTTOCLASSE
     context.user_data['sottoclasse'] = user_choice
-    context.user_data['talenti'] = []
     
+    # Inizia la logica per l'equipaggiamento
+    equip_options = equipaggiamento_iniziale.get(classe, [])
+    if equip_options:
+        context.user_data['opzioni_equip_rimanenti'] = [opzione for opzione in equip_options if isinstance(opzione, list)]
+        context.user_data['equip_fisso'] = [opzione for opzione in equip_options if isinstance(opzione, str)]
+        return await chiedi_equipaggiamento(update, context)
+    else:
+        # Se la classe non ha scelte di equipaggiamento, passa direttamente al prossimo stato
+        await update.message.reply_text("La tua classe non ha opzioni di equipaggiamento da scegliere. Passiamo al livello.")
+        return await chiedi_livello(update, context)
+
+async def chiedi_equipaggiamento(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    opzioni_rimanenti = context.user_data.get('opzioni_equip_rimanenti')
+    
+    if not opzioni_rimanenti:
+        # Tutte le scelte sono state fatte, passa al prossimo stato
+        return await chiedi_livello(update, context)
+
+    opzioni = opzioni_rimanenti[0]
+    reply_keyboard = [opzioni[i:i + 2] for i in range(0, len(opzioni), 2)]
+    
+    await update.message.reply_text(
+        f"Scegli l'equipaggiamento per la tua classe:",
+        reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True)
+    )
+    return SCEGLI_EQUIPAGGIAMENTO
+
+async def gestisci_scelta_equipaggiamento(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_choice = update.message.text
+    opzioni_rimanenti = context.user_data.get('opzioni_equip_rimanenti')
+
+    if not opzioni_rimanenti or user_choice not in opzioni_rimanenti[0]:
+        await update.message.reply_text("Scelta non valida. Per favore, scegli un'opzione dalla tastiera.")
+        return SCEGLI_EQUIPAGGIAMENTO
+
+    context.user_data['equipaggiamento'].append(user_choice)
+    opzioni_rimanenti.pop(0)
+
+    if opzioni_rimanenti:
+        return await chiedi_equipaggiamento(update, context)
+    else:
+        return await chiedi_livello(update, context)
+
+async def chiedi_livello(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         f"Ottimo! Infine, a quale livello è il tuo personaggio? (1-20)",
         reply_markup=ReplyKeyboardRemove()
@@ -263,7 +390,6 @@ async def applica_asi_1(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     return await gestisci_transizione(update, context)
 
-
 async def scegli_talento_1(update: Update, context: ContextTypes.DEFAULT_TYPE):
     feat_choice = update.message.text
     classe = context.user_data['classe']
@@ -292,6 +418,8 @@ async def gestisci_transizione(update: Update, context: ContextTypes.DEFAULT_TYP
 async def finalize_character(update: Update, context: ContextTypes.DEFAULT_TYPE):
     stats_final = context.user_data['stats']
     talenti_final = ", ".join(context.user_data['talenti']) if context.user_data['talenti'] else "Nessuno"
+    equip_scelto = ", ".join(context.user_data['equipaggiamento']) if context.user_data['equipaggiamento'] else "Nessuno"
+    equip_fisso = ", ".join(context.user_data['equip_fisso']) if context.user_data['equip_fisso'] else "Nessuno"
 
     message = (
         "<b>Personaggio generato! ✨</b>\n\n"
@@ -305,6 +433,9 @@ async def finalize_character(update: Update, context: ContextTypes.DEFAULT_TYPE)
         f"Intelligenza: {stats_final['Intelligenza']}\n"
         f"Saggezza: {stats_final['Saggezza']}\n"
         f"Carisma: {stats_final['Carisma']}\n\n"
+        f"<b>Equipaggiamento:</b>\n"
+        f"  - Scelte: {equip_scelto}\n"
+        f"  - Fisso: {equip_fisso}\n\n"
         f"<b>Talenti:</b> {talenti_final}"
     )
 
@@ -330,7 +461,7 @@ async def next_char(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 def main():
     if not TELEGRAM_TOKEN:
-        print("Errore: il token Telegram non è stato impostato come variabile d'ambiente.")
+        print("Errore: il token Telegram non è stato impostato.")
         return
 
     app = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
@@ -341,6 +472,7 @@ def main():
             QUANTI_PERSONAGGI: [MessageHandler(filters.TEXT & ~filters.COMMAND, quanti_personaggi)],
             SCEGLI_CLASSE: [MessageHandler(filters.TEXT & ~filters.COMMAND, classe_scelta)],
             SCEGLI_SOTTOCLASSE: [MessageHandler(filters.TEXT & ~filters.COMMAND, sottoclasse_scelta)],
+            SCEGLI_EQUIPAGGIAMENTO: [MessageHandler(filters.TEXT & ~filters.COMMAND, gestisci_scelta_equipaggiamento)],
             SCEGLI_LIVELLO: [MessageHandler(filters.TEXT & ~filters.COMMAND, livello_scelto)],
             SCEGLI_BONUS_LIV4: [MessageHandler(filters.TEXT & ~filters.COMMAND, scegli_bonus_liv4)],
             SCEGLI_BONUS_LIV8: [MessageHandler(filters.TEXT & ~filters.COMMAND, scegli_bonus_liv8)],
