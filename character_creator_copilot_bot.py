@@ -3,13 +3,13 @@ from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes, Messa
 import random
 import os
 
-TELEGRAM_TOKEN = "il tuo token"
+TELEGRAM_TOKEN = ""
 
 # Stati della conversazione
 (
     QUANTI_PERSONAGGI, SCEGLI_CLASSE, SCEGLI_SOTTOCLASSE, SCEGLI_EQUIPAGGIAMENTO, 
     SCEGLI_LIVELLO, SCEGLI_BONUS_LIV4, SCEGLI_BONUS_LIV8, APPLICA_ASI_1,
-    SCEGLI_TALENTO_1, FINE_CREAZIONE
+    SCEGLI_TALENTO_1, SCEGLI_LINGUE
 ) = range(10)
 
 # Dati di D&D - LISTA COMPLETA
@@ -64,88 +64,122 @@ talenti_per_classe = {
     'Mago da Guerra': ['War Caster', 'Spell Sniper', 'Elemental Adept', 'Resilient (Intelligence)', 'Fey Touched', 'Ritual Caster'],
 }
 
+# Nuovo dizionario per le competenze di classe e sottoclasse
+competenze_iniziali = {
+    'Barbaro': {'armature': ['leggera', 'media', 'scudo'], 'armi': ['semplice', 'da guerra'], 'attrezzi': []},
+    'Bardo': {'armature': ['leggera'], 'armi': ['semplice', 'balestra a mano', 'spada lunga', 'stocco', 'spada corta'], 'attrezzi': ['strumento musicale (3)'], 'sottoclasse': {
+        'Collegio della Valor': {'armature': ['media', 'scudo'], 'armi': ['da guerra']},
+    }},
+    'Chierico': {'armature': ['leggera', 'media', 'scudo'], 'armi': ['semplice'], 'attrezzi': [], 'sottoclasse': {
+        'Dominio della Vita': {'armature': ['pesante']},
+        'Dominio della Guerra': {'armature': ['pesante'], 'armi': ['da guerra']},
+        'Dominio della Forgia': {'armature': ['pesante']},
+    }},
+    'Druido': {'armature': ['leggera', 'media', 'scudo'], 'armi': ['semplice'], 'attrezzi': ['erborista'], 'note': 'Non indossano armature o scudi di metallo.'},
+    'Guerriero': {'armature': ['leggera', 'media', 'pesante', 'scudo'], 'armi': ['semplice', 'da guerra'], 'attrezzi': []},
+    'Ladro': {'armature': ['leggera'], 'armi': ['semplice', 'spada lunga', 'stocco', 'balestra a mano'], 'attrezzi': ['attrezzi da scasso']},
+    'Mago': {'armature': [], 'armi': ['pugnale', 'dardo', 'fionda', 'bastone', 'balestra leggera'], 'attrezzi': []},
+    'Monaco': {'armature': [], 'armi': ['semplice', 'spada corta'], 'attrezzi': ['un tipo di attrezzi da artigiano o uno strumento musicale']},
+    'Paladino': {'armature': ['leggera', 'media', 'pesante', 'scudo'], 'armi': ['semplice', 'da guerra'], 'attrezzi': []},
+    'Ranger': {'armature': ['leggera', 'media', 'scudo'], 'armi': ['semplice', 'da guerra'], 'attrezzi': []},
+    'Stregone': {'armature': [], 'armi': ['pugnale', 'bastone', 'dardo', 'fionda', 'balestra leggera'], 'attrezzi': []},
+    'Warlock': {'armature': ['leggera'], 'armi': ['semplice'], 'attrezzi': []},
+    'Artefice': {'armature': ['leggera', 'media', 'scudo'], 'armi': ['semplice', 'da guerra'], 'attrezzi': ['attrezzi da artigiano (2)']},
+    'Mago da Guerra': {'armature': [], 'armi': ['semplice', 'pugnale', 'dardo', 'fionda', 'bastone', 'balestra leggera'], 'attrezzi': []},
+}
+
+# Nuovo dizionario per le lingue
+lingue_conoscibili = {
+    'standard': ['Comune', 'Nano', 'Elfico', 'Gigante', 'Gnomesco', 'Goblin', 'Halfling', 'Orchesco'],
+    'esotiche': ['Abissale', 'Celestiale', 'Draconico', 'Infernale', 'Primordiale', 'Sottocomune'],
+    'numero_lingue_extra': {
+        'Umano': 1,  # Esempio, dato che non abbiamo le razze
+        'Chierico': 1,
+        'Mago': 2,
+    }
+}
+
 equipaggiamento_iniziale = {
     'Barbaro': [
-        ['Un\'ascia bipenne', 'Qualsiasi arma marziale da mischia'],
-        ['Due asce da mano', 'Qualsiasi arma semplice'],
-        'Un pacchetto da esploratore e quattro giavellotti'
+        ['ascia bipenne', 'qualsiasi arma marziale da mischia'],
+        ['due asce da mano', 'qualsiasi arma semplice'],
+        'un pacchetto da esploratore e quattro giavellotti'
     ],
     'Bardo': [
-        ['Uno stocco', 'Una spada lunga', 'Qualsiasi arma semplice'],
-        ['Un pacchetto da diplomatico', 'Un pacchetto da intrattenitore'],
-        ['Un liuto', 'Qualsiasi altro strumento musicale'],
-        'Un\'armatura di cuoio e un pugnale'
+        ['stocco', 'spada lunga', 'qualsiasi arma semplice'],
+        ['un pacchetto da diplomatico', 'un pacchetto da intrattenitore'],
+        ['un liuto', 'qualsiasi altro strumento musicale'],
+        'un\'armatura di cuoio e un pugnale'
     ],
     'Chierico': [
-        ['Una mazza', 'Un martello da guerra'],
-        ['Un\'armatura di maglia', 'Un\'armatura di cuoio', 'Un\'armatura di scaglie'],
-        ['Uno scudo', 'Un\'arma semplice'],
-        ['Un pacchetto da sacerdote', 'Un pacchetto da esploratore'],
-        'Uno scudo e un simbolo sacro'
+        ['una mazza', 'un martello da guerra'],
+        ['armatura di maglia', 'armatura di cuoio', 'armatura di scaglie', 'armatura pesante'], # Aggiunto "pesante" per la logica
+        ['uno scudo', 'un\'arma semplice'],
+        ['un pacchetto da sacerdote', 'un pacchetto da esploratore']
     ],
     'Druido': [
-        ['Uno scudo di legno', 'Qualsiasi arma semplice'],
-        ['Una scimitarra', 'Qualsiasi arma da mischia semplice'],
-        'Un\'armatura di cuoio, un pacchetto da esploratore e un focus druidico'
+        ['uno scudo di legno', 'qualsiasi arma semplice'],
+        ['una scimitarra', 'qualsiasi arma da mischia semplice'],
+        'un\'armatura di cuoio, un pacchetto da esploratore e un focus druidico'
     ],
     'Guerriero': [
-        ['Armatura di maglia', 'Armatura di cuoio, un arco lungo e 20 frecce'],
-        ['Un\'arma marziale e uno scudo', 'Due armi marziali'],
-        ['Una balestra leggera e 20 dardi', 'Due asce da mano'],
-        ['Un pacchetto da avventuriero', 'Un pacchetto da esploratore']
+        ['armatura di maglia', 'armatura di cuoio, arco lungo e 20 frecce'],
+        ['un\'arma marziale e uno scudo', 'due armi marziali'],
+        ['una balestra leggera e 20 dardi', 'due asce da mano'],
+        ['un pacchetto da avventuriero', 'un pacchetto da esploratore']
     ],
     'Ladro': [
-        ['Uno stocco', 'Una spada corta'],
-        ['Un arco corto e 20 frecce', 'Una spada corta'],
-        ['Un pacchetto da scassinatore', 'Un pacchetto da avventuriero', 'Un pacchetto da esploratore'],
-        'Un\'armatura di cuoio, due pugnali e gli attrezzi da scasso'
+        ['uno stocco', 'una spada corta'],
+        ['un arco corto e 20 frecce', 'una spada corta'],
+        ['un pacchetto da scassinatore', 'un pacchetto da avventuriero', 'un pacchetto da esploratore'],
+        'un\'armatura di cuoio, due pugnali e gli attrezzi da scasso'
     ],
     'Mago': [
-        ['Un bastone', 'Un pugnale'],
-        ['Un pacchetto da studioso', 'Un pacchetto da avventuriero'],
-        ['Una borsa dei componenti', 'Un focus arcano'],
-        'Un libro degli incantesimi'
+        ['un bastone', 'un pugnale'],
+        ['un pacchetto da studioso', 'un pacchetto da avventuriero'],
+        ['una borsa dei componenti', 'un focus arcano'],
+        'un libro degli incantesimi'
     ],
     'Monaco': [
-        ['Una spada corta', 'Qualsiasi arma semplice'],
-        ['Un pacchetto da avventuriero', 'Un pacchetto da esploratore'],
+        ['una spada corta', 'qualsiasi arma semplice'],
+        ['un pacchetto da avventuriero', 'un pacchetto da esploratore'],
         '10 giavellotti'
     ],
     'Paladino': [
-        ['Un\'arma marziale e uno scudo', 'Due armi marziali'],
-        ['Cinque giavellotti', 'Un\'arma da mischia semplice'],
-        ['Un pacchetto da sacerdote', 'Un pacchetto da esploratore'],
-        'Armatura di maglia e un simbolo sacro'
+        ['un\'arma marziale e uno scudo', 'due armi marziali'],
+        ['cinque giavellotti', 'un\'arma da mischia semplice'],
+        ['un pacchetto da sacerdote', 'un pacchetto da esploratore'],
+        'armatura di maglia e un simbolo sacro'
     ],
     'Ranger': [
-        ['Armatura di maglia', 'Armatura di cuoio'],
-        ['Due spade corte', 'Due armi semplici'],
-        ['Un pacchetto da avventuriero', 'Un pacchetto da esploratore'],
-        'Un arco lungo e 20 frecce'
+        ['armatura di maglia', 'armatura di cuoio'],
+        ['due spade corte', 'due armi semplici'],
+        ['un pacchetto da avventuriero', 'un pacchetto da esploratore'],
+        'un arco lungo e 20 frecce'
     ],
     'Stregone': [
-        ['Una balestra leggera e 20 dardi', 'Qualsiasi arma semplice'],
-        ['Una borsa dei componenti', 'Un focus arcano'],
-        ['Un pacchetto da avventuriero', 'Un pacchetto da esploratore'],
-        'Due pugnali'
+        ['una balestra leggera e 20 dardi', 'qualsiasi arma semplice'],
+        ['una borsa dei componenti', 'un focus arcano'],
+        ['un pacchetto da avventuriero', 'un pacchetto da esploratore'],
+        'due pugnali'
     ],
     'Warlock': [
-        ['Una balestra leggera e 20 dardi', 'Qualsiasi arma semplice'],
-        ['Una borsa dei componenti', 'Un focus arcano'],
-        ['Un pacchetto da studioso', 'Un pacchetto da avventuriero'],
-        'Un\'armatura di cuoio e due pugnali'
+        ['una balestra leggera e 20 dardi', 'qualsiasi arma semplice'],
+        ['una borsa dei componenti', 'un focus arcano'],
+        ['un pacchetto da studioso', 'un pacchetto da avventuriero'],
+        'un\'armatura di cuoio e due pugnali'
     ],
     'Artefice': [
-        ['Un martello da guerra', 'Un\'arma semplice'],
-        ['Una balestra leggera e 20 dardi', 'Qualsiasi arma semplice'],
-        ['Un pacchetto da avventuriero', 'Un pacchetto da esploratore'],
-        'Un\'armatura di scaglie, uno scudo, una serie di attrezzi da artigiano e una serie di attrezzi da scasso'
+        ['un martello da guerra', 'un\'arma semplice'],
+        ['una balestra leggera e 20 dardi', 'qualsiasi arma semplice'],
+        ['un pacchetto da avventuriero', 'un pacchetto da esploratore'],
+        'un\'armatura di scaglie, uno scudo, una serie di attrezzi da artigiano e una serie di attrezzi da scasso'
     ],
     'Mago da Guerra': [
-        ['Una balestra leggera e 20 dardi', 'Qualsiasi arma semplice'],
-        ['Un\'armatura di cuoio', 'Un\'armatura di scaglie'],
-        ['Uno scudo', 'Nessuno scudo'],
-        ['Un pacchetto da avventuriero', 'Un pacchetto da studioso']
+        ['una balestra leggera e 20 dardi', 'qualsiasi arma semplice'],
+        ['un\'armatura di cuoio', 'un\'armatura di scaglie'],
+        ['uno scudo', 'Nessuno scudo'],
+        ['un pacchetto da avventuriero', 'un pacchetto da studioso']
     ],
 }
 
@@ -174,6 +208,17 @@ def assign_stats(class_name, stats_values):
             assigned_count += 1
     return all_stats
 
+# Funzione per aggiungere le competenze di classe e sottoclasse
+def assegna_competenze(class_name, subclass_name=None):
+    competenze = competenze_iniziali.get(class_name, {})
+    proficienze = competenze.get('armature', []) + competenze.get('armi', []) + competenze.get('attrezzi', [])
+    
+    # Aggiungi le competenze della sottoclasse, se presenti
+    subclass_data = competenze.get('sottoclasse', {}).get(subclass_name, {})
+    proficienze += subclass_data.get('armature', []) + subclass_data.get('armi', []) + subclass_data.get('attrezzi', [])
+    
+    return proficienze
+
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Benvenuto! Quanti personaggi vuoi creare? (1-10)", reply_markup=ReplyKeyboardRemove())
     return QUANTI_PERSONAGGI
@@ -200,6 +245,8 @@ async def inizia_creazione_personaggio(update: Update, context: ContextTypes.DEF
     context.user_data['num_rimanenti'] -= 1
     context.user_data['talenti'] = []
     context.user_data['equipaggiamento'] = []
+    context.user_data['competenze'] = []
+    context.user_data['lingue'] = []
 
     reply_keyboard = [list(classi_disponibili.keys())[i:i + 3] for i in range(0, len(classi_disponibili), 3)]
     
@@ -234,9 +281,12 @@ async def sottoclasse_scelta(update: Update, context: ContextTypes.DEFAULT_TYPE)
     user_choice = update.message.text
     classe = context.user_data.get('classe')
     if user_choice not in classi_disponibili.get(classe, []):
-        await update.message.reply_text("Per favorire, scegli una sottoclasse dalla lista.")
+        await update.message.reply_text("Per favore, scegli una sottoclasse dalla lista.")
         return SCEGLI_SOTTOCLASSE
     context.user_data['sottoclasse'] = user_choice
+    
+    # Assegna le competenze di classe e sottoclasse
+    context.user_data['competenze'] = assegna_competenze(classe, user_choice)
     
     # Inizia la logica per l'equipaggiamento
     equip_options = equipaggiamento_iniziale.get(classe, [])
@@ -245,7 +295,6 @@ async def sottoclasse_scelta(update: Update, context: ContextTypes.DEFAULT_TYPE)
         context.user_data['equip_fisso'] = [opzione for opzione in equip_options if isinstance(opzione, str)]
         return await chiedi_equipaggiamento(update, context)
     else:
-        # Se la classe non ha scelte di equipaggiamento, passa direttamente al prossimo stato
         await update.message.reply_text("La tua classe non ha opzioni di equipaggiamento da scegliere. Passiamo al livello.")
         return await chiedi_livello(update, context)
 
@@ -253,11 +302,34 @@ async def chiedi_equipaggiamento(update: Update, context: ContextTypes.DEFAULT_T
     opzioni_rimanenti = context.user_data.get('opzioni_equip_rimanenti')
     
     if not opzioni_rimanenti:
-        # Tutte le scelte sono state fatte, passa al prossimo stato
         return await chiedi_livello(update, context)
 
     opzioni = opzioni_rimanenti[0]
-    reply_keyboard = [opzioni[i:i + 2] for i in range(0, len(opzioni), 2)]
+    
+    # Filtra le opzioni in base alle competenze del personaggio
+    opzioni_valide = []
+    for opzione in opzioni:
+        is_valida = True
+        # Controlla se l'opzione contiene un tipo di armatura
+        if 'armatura' in opzione:
+            tipo_armatura = 'pesante' if 'pesante' in opzione else 'media' if 'media' in opzione else 'leggera'
+            if tipo_armatura not in context.user_data['competenze']:
+                is_valida = False
+        # Controlla se l'opzione contiene un tipo di arma
+        if 'arma' in opzione:
+            tipo_arma = 'marziale' if 'marziale' in opzione else 'semplice'
+            if tipo_arma not in context.user_data['competenze']:
+                is_valida = False
+        
+        if is_valida:
+            opzioni_valide.append(opzione)
+
+    if not opzioni_valide:
+        await update.message.reply_text("Ops, non ci sono opzioni di equipaggiamento valide per la tua classe. Passiamo alla prossima scelta.")
+        opzioni_rimanenti.pop(0)
+        return await chiedi_equipaggiamento(update, context)
+
+    reply_keyboard = [opzioni_valide[i:i + 2] for i in range(0, len(opzioni_valide), 2)]
     
     await update.message.reply_text(
         f"Scegli l'equipaggiamento per la tua classe:",
@@ -317,7 +389,7 @@ async def livello_scelto(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return SCEGLI_BONUS_LIV4
     
-    return await finalize_character(update, context)
+    return await chiedi_lingue(update, context)
 
 async def scegli_bonus_liv4(update: Update, context: ContextTypes.DEFAULT_TYPE):
     choice = update.message.text
@@ -415,14 +487,58 @@ async def gestisci_transizione(update: Update, context: ContextTypes.DEFAULT_TYP
         )
         return SCEGLI_TALENTO_1
     else:
+        return await chiedi_lingue(update, context)
+
+async def chiedi_lingue(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    classe = context.user_data['classe']
+    num_lingue = lingue_conoscibili['numero_lingue_extra'].get(classe, 0)
+    
+    if num_lingue > 0:
+        context.user_data['lingue_da_scegliere'] = num_lingue
+        
+        lingue_disponibili = lingue_conoscibili['standard'] + lingue_conoscibili['esotiche']
+        reply_keyboard = [lingue_disponibili[i:i+3] for i in range(0, len(lingue_disponibili), 3)]
+        
+        await update.message.reply_text(
+            f"Scegli {num_lingue} lingua/e extra per il tuo personaggio:",
+            reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=False)
+        )
+        return SCEGLI_LINGUE
+    else:
         return await finalize_character(update, context)
+
+async def gestisci_lingue(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    lingua_scelta = update.message.text
+    lingue_disponibili = lingue_conoscibili['standard'] + lingue_conoscibili['esotiche']
+    
+    if lingua_scelta not in lingue_disponibili:
+        await update.message.reply_text("Lingua non valida. Per favore, scegli una lingua dalla lista.")
+        return SCEGLI_LINGUE
+    
+    context.user_data['lingue'].append(lingua_scelta)
+    context.user_data['lingue_da_scegliere'] -= 1
+    
+    if context.user_data['lingue_da_scegliere'] > 0:
+        lingue_rimanenti = [l for l in lingue_disponibili if l not in context.user_data['lingue']]
+        reply_keyboard = [lingue_rimanenti[i:i+3] for i in range(0, len(lingue_rimanenti), 3)]
+        
+        await update.message.reply_text(
+            f"Ancora {context.user_data['lingue_da_scegliere']} lingua/e da scegliere:",
+            reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=False)
+        )
+        return SCEGLI_LINGUE
+    else:
+        return await finalize_character(update, context)
+
 
 async def finalize_character(update: Update, context: ContextTypes.DEFAULT_TYPE):
     stats_final = context.user_data['stats']
     talenti_final = ", ".join(context.user_data['talenti']) if context.user_data['talenti'] else "Nessuno"
     equip_scelto = ", ".join(context.user_data['equipaggiamento']) if context.user_data['equipaggiamento'] else "Nessuno"
     equip_fisso = ", ".join(context.user_data['equip_fisso']) if context.user_data['equip_fisso'] else "Nessuno"
-
+    competenze_final = ", ".join(context.user_data['competenze']) if context.user_data['competenze'] else "Nessuna"
+    lingue_final = ", ".join(context.user_data['lingue']) if context.user_data['lingue'] else "Comune (fisso) e nessuna extra"
+    
     message = (
         "<b>Personaggio generato! ✨</b>\n\n"
         f"<b>Classe:</b> {context.user_data['classe']}\n"
@@ -438,6 +554,10 @@ async def finalize_character(update: Update, context: ContextTypes.DEFAULT_TYPE)
         f"<b>Equipaggiamento:</b>\n"
         f"  - Scelte: {equip_scelto}\n"
         f"  - Fisso: {equip_fisso}\n\n"
+        f"<b>Competenze:</b>\n"
+        f"{competenze_final}\n\n"
+        f"<b>Lingue:</b>\n"
+        f"{lingue_final}\n\n"
         f"<b>Talenti:</b> {talenti_final}"
     )
 
@@ -480,6 +600,7 @@ def main():
             SCEGLI_BONUS_LIV8: [MessageHandler(filters.TEXT & ~filters.COMMAND, scegli_bonus_liv8)],
             APPLICA_ASI_1: [MessageHandler(filters.TEXT & ~filters.COMMAND, applica_asi_1)],
             SCEGLI_TALENTO_1: [MessageHandler(filters.TEXT & ~filters.COMMAND, scegli_talento_1)],
+            SCEGLI_LINGUE: [MessageHandler(filters.TEXT & ~filters.COMMAND, gestisci_lingue)],
         },
         fallbacks=[CommandHandler('cancel', cancel), CommandHandler('start', start), CommandHandler('next', next_char)],
     )
