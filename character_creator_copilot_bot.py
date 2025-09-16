@@ -3,7 +3,7 @@ from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes, Messa
 import random
 import os
 
-TELEGRAM_TOKEN = "Inserire telegram token"
+TELEGRAM_TOKEN = "il tuo token"
 
 # Stati della conversazione
 (
@@ -66,82 +66,84 @@ talenti_per_classe = {
 
 equipaggiamento_iniziale = {
     'Barbaro': [
-        ['Ascia bipenne', 'Qualsiasi arma marziale da mischia'],
-        ['Un pacchetto da esploratore', 'Quattro giavellotti'],
-        'Un\'arma da mischia semplice e due asce da mano'
+        ['Un\'ascia bipenne', 'Qualsiasi arma marziale da mischia'],
+        ['Due asce da mano', 'Qualsiasi arma semplice'],
+        'Un pacchetto da esploratore e quattro giavellotti'
     ],
     'Bardo': [
-        ['Un\'armatura di cuoio', 'Nessuna armatura'],
-        ['Stocco', 'Spada lunga', 'Qualsiasi arma semplice'],
+        ['Uno stocco', 'Una spada lunga', 'Qualsiasi arma semplice'],
         ['Un pacchetto da diplomatico', 'Un pacchetto da intrattenitore'],
-        'Uno strumento musicale e un\'arma semplice'
+        ['Un liuto', 'Qualsiasi altro strumento musicale'],
+        'Un\'armatura di cuoio e un pugnale'
     ],
     'Chierico': [
-        ['Mazza', 'Martello da guerra'],
-        ['Armatura di maglia', 'Armatura di cuoio', 'Armatura di scaglie'],
-        ['Uno scudo', 'Nessuno scudo'],
-        ['Un pacchetto da esploratore', 'Un pacchetto da sacerdote']
+        ['Una mazza', 'Un martello da guerra'],
+        ['Un\'armatura di maglia', 'Un\'armatura di cuoio', 'Un\'armatura di scaglie'],
+        ['Uno scudo', 'Un\'arma semplice'],
+        ['Un pacchetto da sacerdote', 'Un pacchetto da esploratore'],
+        'Uno scudo e un simbolo sacro'
     ],
     'Druido': [
-        ['Scudo di legno', 'Qualsiasi arma semplice da mischia'],
-        ['Un pacchetto da esploratore', 'Un pacchetto da sacerdote'],
-        'Un\'armatura di cuoio, una scimitarra, un\'ascia da mano e uno scudo di legno'
+        ['Uno scudo di legno', 'Qualsiasi arma semplice'],
+        ['Una scimitarra', 'Qualsiasi arma da mischia semplice'],
+        'Un\'armatura di cuoio, un pacchetto da esploratore e un focus druidico'
     ],
     'Guerriero': [
-        ['Armatura di maglia', 'Armatura di cuoio'],
-        ['Uno scudo', 'Due armi semplici'],
-        ['Una spada lunga', 'Un\'ascia da battaglia'],
-        ['Un pacchetto da esploratore', 'Un pacchetto da guerriero']
+        ['Armatura di maglia', 'Armatura di cuoio, un arco lungo e 20 frecce'],
+        ['Un\'arma marziale e uno scudo', 'Due armi marziali'],
+        ['Una balestra leggera e 20 dardi', 'Due asce da mano'],
+        ['Un pacchetto da avventuriero', 'Un pacchetto da esploratore']
     ],
     'Ladro': [
         ['Uno stocco', 'Una spada corta'],
-        ['Un arco corto con 20 frecce', 'Due pugnali'],
-        ['Un pacchetto da scassinatore', 'Un pacchetto da esploratore'],
-        'Un pacchetto da intrattenitore',
-        'Un\'armatura di cuoio e due pugnali'
+        ['Un arco corto e 20 frecce', 'Una spada corta'],
+        ['Un pacchetto da scassinatore', 'Un pacchetto da avventuriero', 'Un pacchetto da esploratore'],
+        'Un\'armatura di cuoio, due pugnali e gli attrezzi da scasso'
     ],
     'Mago': [
         ['Un bastone', 'Un pugnale'],
         ['Un pacchetto da studioso', 'Un pacchetto da avventuriero'],
-        'Un tomo di incantesimi, un focus arcano, due pugnali'
+        ['Una borsa dei componenti', 'Un focus arcano'],
+        'Un libro degli incantesimi'
     ],
     'Monaco': [
-        ['Spada corta', 'Qualsiasi arma semplice'],
-        ['Un pacchetto da esploratore', 'Un pacchetto da avventuriero'],
-        'Due pugnali e dieci giavellotti'
+        ['Una spada corta', 'Qualsiasi arma semplice'],
+        ['Un pacchetto da avventuriero', 'Un pacchetto da esploratore'],
+        '10 giavellotti'
     ],
     'Paladino': [
-        ['Armatura di maglia', 'Armatura di cuoio'],
-        ['Scudo', 'Nessuno scudo'],
-        ['Una spada lunga', 'Un\'ascia da battaglia'],
-        ['Un pacchetto da guerriero', 'Un pacchetto da esploratore']
+        ['Un\'arma marziale e uno scudo', 'Due armi marziali'],
+        ['Cinque giavellotti', 'Un\'arma da mischia semplice'],
+        ['Un pacchetto da sacerdote', 'Un pacchetto da esploratore'],
+        'Armatura di maglia e un simbolo sacro'
     ],
     'Ranger': [
         ['Armatura di maglia', 'Armatura di cuoio'],
-        ['Spada corta', 'Qualsiasi arma semplice'],
-        ['Un arco corto con 20 frecce', 'Due pugnali'],
-        ['Un pacchetto da esploratore', 'Un pacchetto da avventuriero']
+        ['Due spade corte', 'Due armi semplici'],
+        ['Un pacchetto da avventuriero', 'Un pacchetto da esploratore'],
+        'Un arco lungo e 20 frecce'
     ],
     'Stregone': [
-        ['Una spada corta', 'Qualsiasi arma semplice'],
-        ['Un pacchetto da esploratore', 'Un pacchetto da studioso'],
-        ['Un focus arcano', 'Due pugnali'],
-        'Un\'armatura di stoffa e una faretra con 20 frecce'
+        ['Una balestra leggera e 20 dardi', 'Qualsiasi arma semplice'],
+        ['Una borsa dei componenti', 'Un focus arcano'],
+        ['Un pacchetto da avventuriero', 'Un pacchetto da esploratore'],
+        'Due pugnali'
     ],
     'Warlock': [
-        ['Balestra leggera', 'Qualsiasi arma semplice'],
-        ['Un pacchetto da avventuriero', 'Un pacchetto da studioso'],
-        ['Un focus arcano', 'Due pugnali']
+        ['Una balestra leggera e 20 dardi', 'Qualsiasi arma semplice'],
+        ['Una borsa dei componenti', 'Un focus arcano'],
+        ['Un pacchetto da studioso', 'Un pacchetto da avventuriero'],
+        'Un\'armatura di cuoio e due pugnali'
     ],
     'Artefice': [
-        ['Martello leggero', 'Martello da guerra'],
-        ['Armatura di cuoio', 'Armatura di scaglie'],
-        ['Uno scudo', 'Nessuno scudo'],
-        ['Un pacchetto da esploratore', 'Un pacchetto da artigiano']
+        ['Un martello da guerra', 'Un\'arma semplice'],
+        ['Una balestra leggera e 20 dardi', 'Qualsiasi arma semplice'],
+        ['Un pacchetto da avventuriero', 'Un pacchetto da esploratore'],
+        'Un\'armatura di scaglie, uno scudo, una serie di attrezzi da artigiano e una serie di attrezzi da scasso'
     ],
     'Mago da Guerra': [
-        ['Balestra leggera', 'Qualsiasi arma semplice'],
-        ['Armatura di cuoio', 'Armatura di scaglie'],
+        ['Una balestra leggera e 20 dardi', 'Qualsiasi arma semplice'],
+        ['Un\'armatura di cuoio', 'Un\'armatura di scaglie'],
         ['Uno scudo', 'Nessuno scudo'],
         ['Un pacchetto da avventuriero', 'Un pacchetto da studioso']
     ],
@@ -232,7 +234,7 @@ async def sottoclasse_scelta(update: Update, context: ContextTypes.DEFAULT_TYPE)
     user_choice = update.message.text
     classe = context.user_data.get('classe')
     if user_choice not in classi_disponibili.get(classe, []):
-        await update.message.reply_text("Per favore, scegli una sottoclasse dalla lista.")
+        await update.message.reply_text("Per favorire, scegli una sottoclasse dalla lista.")
         return SCEGLI_SOTTOCLASSE
     context.user_data['sottoclasse'] = user_choice
     
